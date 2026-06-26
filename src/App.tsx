@@ -1,0 +1,386 @@
+import { useState, useEffect } from 'react';
+import { ShieldCheck, Eye, Award, CheckCircle, Navigation, MapPin, RefreshCw, AlertCircle, BarChart3 } from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
+import ReportMap from './components/ReportMap';
+import CitizenPortal from './components/CitizenPortal';
+import OmbudsmanDashboard from './components/OmbudsmanDashboard';
+import PublicScorecard from './components/PublicScorecard';
+import CivicGamification from './components/CivicGamification';
+import TopographicBackground from './components/TopographicBackground';
+import { Report, DashboardStats } from './types';
+
+export default function App() {
+  const [reports, setReports] = useState<Report[]>([]);
+  const [stats, setStats] = useState<DashboardStats>({
+    totalActive: 0,
+    totalResolved: 0,
+    potholeCount: 0,
+    garbageCount: 0,
+    waterCount: 0,
+    lightingCount: 0,
+    wardStats: []
+  });
+  
+  const [selectedReport, setSelectedReport] = useState<Report | null>(null);
+  const [newReportLocation, setNewReportLocation] = useState<{ latitude: number; longitude: number } | null>(null);
+  const [activeTab, setActiveTab] = useState<'citizen' | 'ombudsman' | 'scorecard' | 'league'>('citizen');
+  
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [notification, setNotification] = useState<{ type: 'success' | 'info' | 'error'; text: string } | null>(null);
+
+  // Load Initial Data
+  const fetchData = async (isSilent = false) => {
+    if (!isSilent) setLoading(true);
+    else setRefreshing(true);
+
+    try {
+      const reportsRes = await fetch('/api/reports');
+      const reportsData = await reportsRes.json();
+      setReports(reportsData);
+
+      // Default select the first report if none is selected
+      if (reportsData.length > 0 && !selectedReport) {
+        setSelectedReport(reportsData[0]);
+      } else if (selectedReport) {
+        // Sync selected report if it was updated
+        const updated = reportsData.find((r: Report) => r.id === selectedReport.id);
+        if (updated) setSelectedReport(updated);
+      }
+
+      const statsRes = await fetch('/api/stats');
+      const statsData = await statsRes.json();
+      setStats(statsData);
+    } catch (err) {
+      console.error('Error fetching dashboard data:', err);
+      showToast('error', 'Network sync failed. Operating offline/simulated.');
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchData();
+  }, []);
+
+  // Show Toast notification helper
+  const showToast = (type: 'success' | 'info' | 'error', text: string) => {
+    setNotification({ type, text });
+    setTimeout(() => {
+      setNotification(null);
+    }, 6000);
+  };
+
+  // Callback when citizen logs a new complaint
+  const handleReportCreated = (newReport: Report, isDuplicate: boolean, msg: string) => {
+    showToast(isDuplicate ? 'info' : 'success', msg);
+    fetchData(true);
+    setSelectedReport(newReport);
+  };
+
+  // Upvote incident
+  const handleUpvote = async (id: string) => {
+    try {
+      const res = await fetch(`/api/reports/${id}/upvote`, { method: 'POST' });
+      if (!res.ok) throw new Error('Failed to register upvote');
+      const updated = await res.json();
+      
+      // Update local state smoothly
+      setReports(prev => prev.map(r => r.id === id ? updated : r));
+      setSelectedReport(updated);
+      showToast('success', 'Complaint urgency escalated! Upvote registered.');
+      fetchData(true);
+    } catch (err) {
+      console.error(err);
+      showToast('error', 'Failed to upvote.');
+    }
+  };
+
+  // Submit comment
+  const handleAddComment = async (id: string, author: string, text: string) => {
+    try {
+      const res = await fetch(`/api/reports/${id}/comments`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ author, text })
+      });
+      if (!res.ok) throw new Error('Comment failed');
+      const updated = await res.json();
+
+      setReports(prev => prev.map(r => r.id === id ? updated : r));
+      setSelectedReport(updated);
+      showToast('success', 'Public commentary registered successfully.');
+    } catch (err) {
+      console.error(err);
+      showToast('error', 'Failed to submit comment.');
+    }
+  };
+
+  // Manual Status updating inside Ombudsman view
+  const handleStatusUpdated = (updatedReport: Report) => {
+    setReports(prev => prev.map(r => r.id === updatedReport.id ? updatedReport : r));
+    setSelectedReport(updatedReport);
+    showToast('success', `Dispatch record updated: ${updatedReport.status}`);
+    fetchData(true);
+  };
+
+  // Visual Verification submission inside Ombudsman view
+  const handleVerifyResolution = async (id: string, resolutionImage: string, resolverName: string, comment: string) => {
+    try {
+      const res = await fetch(`/api/reports/${id}/verify-resolution`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ resolutionImage, resolverName, comment })
+      });
+      
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.error || 'Visual verification failed.');
+      }
+
+      const data = await res.json();
+      
+      // Update local reports and selected report
+      setReports(prev => prev.map(r => r.id === id ? data.report : r));
+      setSelectedReport(data.report);
+      
+      if (data.approved) {
+        showToast('success', 'AI Visual Verification APPROVED! Case resolved and closed.');
+      } else {
+        showToast('error', 'AI Visual Verification REJECTED! Repair has been flagged as insufficient.');
+      }
+
+      fetchData(true);
+      return data;
+    } catch (err: any) {
+      console.error(err);
+      throw err;
+    }
+  };
+
+  // Click on map to place a pin for a new complaint
+  const handleSelectLocationFromMap = (lat: number, lng: number) => {
+    // Only allow changing location pin if citizen portal is open
+    if (activeTab === 'citizen') {
+      setNewReportLocation({ latitude: lat, longitude: lng });
+      showToast('info', `Geolocation updated: Pin placed on map.`);
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-[#0c231c] font-sans flex flex-col antialiased relative z-0">
+      <TopographicBackground />
+      
+      {/* 1. Header/Navigation Brand Bar */}
+      <header className="bg-white border-b border-gray-100 sticky top-0 z-[1000] px-4 md:px-8 py-3.5 flex items-center justify-between shadow-sm">
+        <div className="flex items-center gap-3">
+          {/* Logo Icon */}
+          <div className="w-10 h-10 rounded-xl bg-indigo-600 flex items-center justify-center text-white shadow-md shadow-indigo-200">
+            <ShieldCheck className="w-5.5 h-5.5 stroke-[2.2]" />
+          </div>
+          <div className="flex flex-col">
+            <h1 className="font-display font-bold text-gray-900 text-lg leading-tight tracking-tight flex items-center gap-1.5">
+              ViaPulse
+            </h1>
+          </div>
+        </div>
+
+        {/* Workspace Tab Nav Toggles */}
+        <div className="flex bg-slate-100/80 p-1 rounded-xl border border-gray-200/40">
+          <button
+            onClick={() => { setActiveTab('citizen'); setNewReportLocation(null); }}
+            className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+              activeTab === 'citizen'
+                ? 'bg-white text-indigo-600 shadow-sm'
+                : 'text-gray-500 hover:text-gray-900'
+            }`}
+          >
+            <MapPin className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Citizen Node</span>
+          </button>
+
+          <button
+            onClick={() => { setActiveTab('league'); setNewReportLocation(null); }}
+            className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+              activeTab === 'league'
+                ? 'bg-white text-indigo-600 shadow-sm'
+                : 'text-gray-500 hover:text-gray-900'
+            }`}
+          >
+            <Award className="w-3.5 h-3.5 text-indigo-500" />
+            <span className="hidden sm:inline">Sentinels League</span>
+          </button>
+          
+          <button
+            onClick={() => { setActiveTab('ombudsman'); setNewReportLocation(null); }}
+            className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+              activeTab === 'ombudsman'
+                ? 'bg-white text-indigo-600 shadow-sm'
+                : 'text-gray-500 hover:text-gray-900'
+            }`}
+          >
+            <Eye className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Ombudsman Desk</span>
+          </button>
+
+          <button
+            onClick={() => { setActiveTab('scorecard'); setNewReportLocation(null); }}
+            className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+              activeTab === 'scorecard'
+                ? 'bg-white text-indigo-600 shadow-sm'
+                : 'text-gray-500 hover:text-gray-900'
+            }`}
+          >
+            <BarChart3 className="w-3.5 h-3.5 text-rose-500" />
+            <span className="hidden sm:inline">Public Indexes</span>
+          </button>
+        </div>
+
+        {/* Sync Controls / Indicators */}
+        <button
+          onClick={() => fetchData(true)}
+          disabled={refreshing}
+          className="p-2 rounded-lg bg-slate-50 hover:bg-slate-100 text-gray-500 disabled:opacity-50 transition-all border border-gray-100"
+          title="Refresh Data Logs"
+        >
+          <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin text-indigo-600' : ''}`} />
+        </button>
+      </header>
+
+      {/* Toast Notification Container */}
+      <AnimatePresence>
+        {notification && (
+          <motion.div
+            initial={{ opacity: 0, y: -20, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -20, scale: 0.95 }}
+            className="fixed top-20 left-1/2 -translate-x-1/2 z-[1100] w-full max-w-md px-4"
+          >
+            <div className={`p-4 rounded-xl border shadow-lg flex items-start gap-3 backdrop-blur-md ${
+              notification.type === 'success'
+                ? 'bg-emerald-50/95 border-emerald-100 text-emerald-800'
+                : notification.type === 'error'
+                ? 'bg-rose-50/95 border-rose-100 text-rose-800'
+                : 'bg-indigo-50/95 border-indigo-100 text-indigo-800'
+            }`}>
+              {notification.type === 'success' ? (
+                <CheckCircle className="w-5 h-5 text-emerald-600 shrink-0" />
+              ) : notification.type === 'error' ? (
+                <AlertCircle className="w-5 h-5 text-rose-600 shrink-0" />
+              ) : (
+                <Navigation className="w-5 h-5 text-indigo-600 shrink-0" />
+              )}
+              <div className="flex-1 text-xs">
+                <span className="font-bold">WardWatch Sentinel</span>
+                <p className="mt-0.5 leading-normal opacity-90">{notification.text}</p>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* 2. Loading State Overlay */}
+      {loading ? (
+        <div className="flex-1 flex flex-col items-center justify-center gap-3">
+          <div className="w-8 h-8 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
+          <p className="text-xs font-semibold text-gray-500 font-sans uppercase tracking-wider">Synchronizing Civic Node Ledger...</p>
+        </div>
+      ) : (
+        /* 3. Main Workspace Grid - Split Map Layout */
+        <main className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-6 p-4 md:p-6 lg:p-8 max-w-[1600px] mx-auto w-full overflow-hidden">
+          
+          {/* TAB PANEL WORKSPACE: Occupies 7 columns on large desktop */}
+          <section className="lg:col-span-7 bg-white rounded-2xl border border-gray-100 shadow-sm p-4 md:p-6 flex flex-col min-h-[450px] lg:min-h-0">
+            <AnimatePresence mode="wait">
+              {activeTab === 'citizen' && (
+                <motion.div
+                  key="citizen-tab"
+                  initial={{ opacity: 0, x: -10 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -10 }}
+                  transition={{ duration: 0.2 }}
+                  className="h-full"
+                >
+                  <CitizenPortal
+                    reports={reports}
+                    selectedReport={selectedReport}
+                    onSelectReport={(r) => setSelectedReport(r)}
+                    newReportLocation={newReportLocation}
+                    setNewReportLocation={setNewReportLocation}
+                    onReportCreated={handleReportCreated}
+                    onUpvote={handleUpvote}
+                    onAddComment={handleAddComment}
+                  />
+                </motion.div>
+              )}
+
+              {activeTab === 'ombudsman' && (
+                <motion.div
+                  key="ombudsman-tab"
+                  initial={{ opacity: 0, x: -10 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -10 }}
+                  transition={{ duration: 0.2 }}
+                  className="h-full"
+                >
+                  <OmbudsmanDashboard
+                    reports={reports}
+                    selectedReport={selectedReport}
+                    onSelectReport={(r) => setSelectedReport(r)}
+                    onStatusUpdated={handleStatusUpdated}
+                    onVerifyResolution={handleVerifyResolution}
+                  />
+                </motion.div>
+              )}
+
+              {activeTab === 'league' && (
+                <motion.div
+                  key="league-tab"
+                  initial={{ opacity: 0, x: -10 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -10 }}
+                  transition={{ duration: 0.2 }}
+                  className="h-full overflow-y-auto"
+                >
+                  <CivicGamification />
+                </motion.div>
+              )}
+
+              {activeTab === 'scorecard' && (
+                <motion.div
+                  key="scorecard-tab"
+                  initial={{ opacity: 0, x: -10 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -10 }}
+                  transition={{ duration: 0.2 }}
+                  className="h-full"
+                >
+                  <PublicScorecard stats={stats} />
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </section>
+
+          {/* INTERACTIVE MAP PANEL: Occupies 5 columns on large desktop */}
+          <section className="lg:col-span-5 h-[350px] sm:h-[450px] lg:h-[75vh] min-h-[350px] flex flex-col sticky top-24">
+            <ReportMap
+              reports={reports}
+              selectedReportId={selectedReport?.id}
+              onSelectReport={(r) => setSelectedReport(r)}
+              onSelectLocation={activeTab === 'citizen' ? handleSelectLocationFromMap : undefined}
+              newReportLocation={newReportLocation}
+            />
+          </section>
+
+        </main>
+      )}
+
+      {/* Minimal Footer */}
+      <footer className="bg-white border-t border-gray-100 py-3.5 px-6 text-center text-[10px] text-gray-400 font-sans mt-auto">
+        <span>WardWatch Autonomous Ombudsman Framework © 2026. Powered by Google Gemini Multi-Agent Infrastructure.</span>
+      </footer>
+
+    </div>
+  );
+}

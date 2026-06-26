@@ -1,0 +1,6 @@
+{
+  "name": "ViaPulse",
+  "description": "An autonomous multi-agent platform that processes single-photo reports, conducts visual validation, auto-deduplicates, and tracks city service level agreements.",
+  "requestFramePermissions": ["camera", "geolocation"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
