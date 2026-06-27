@@ -55,7 +55,7 @@ export default function CivicGamification() {
   ];
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-6 pt-6 md:pt-8">
       
       {/* 1. Profile Status / Impact Score */}
       <div className="bg-slate-900 text-slate-100 p-5 rounded-2xl border border-slate-800 shadow-lg flex flex-col gap-4">

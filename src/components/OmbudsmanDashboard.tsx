@@ -181,7 +181,7 @@ export default function OmbudsmanDashboard({
       
       {/* LEFT COLUMN: Report List & Filtering (5 cols) */}
       <div className="lg:col-span-5 flex flex-col gap-4 border-r border-gray-100 pr-0 lg:pr-4 h-full overflow-y-auto">
-        <div className="flex flex-col gap-1.5 border-b border-gray-100 pb-3">
+        <div className="flex flex-col gap-1.5 border-b border-gray-100 pb-3 pt-6 md:pt-8">
           <div className="flex items-center gap-2 text-indigo-600">
             <ShieldCheck className="w-6 h-6 stroke-[2.2]" />
             <h2 className="font-display font-semibold text-lg text-gray-900 tracking-tight">Ombudsman Control Room</h2>

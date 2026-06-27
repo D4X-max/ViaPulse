@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { ShieldCheck, Eye, Award, CheckCircle, Navigation, MapPin, RefreshCw, AlertCircle, BarChart3, LogIn, LogOut } from 'lucide-react';
+import { ShieldCheck, Shield, Eye, Award, CheckCircle, Navigation, MapPin, RefreshCw, AlertCircle, BarChart3, LogIn, LogOut } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import ReportMap from './components/ReportMap';
 import CitizenPortal from './components/CitizenPortal';
@@ -38,6 +38,27 @@ export default function App() {
   // Authentication State
   const [user, setUser] = useState<User | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
+
+  // Dedicated developer/municipal override toggle for presentation/hackathon
+  const [overrideRole, setOverrideRole] = useState<boolean>(() => {
+    return localStorage.getItem('municipal_override') === 'true';
+  });
+
+  // Derived userRole state field: 'ombudsman' if email is a government email or if local override is enabled.
+  // Otherwise standard citizen.
+  const userRole = (user && (user.email?.endsWith('.gov') || user.email === 'ombudsman@viapulse.gov')) || overrideRole ? 'ombudsman' : 'citizen';
+
+  // Auto-route active tab on role changes or mount
+  useEffect(() => {
+    if (userRole === 'ombudsman') {
+      setActiveTab('ombudsman');
+    } else {
+      // Standard citizen default tab is citizen portal
+      if (activeTab === 'ombudsman') {
+        setActiveTab('citizen');
+      }
+    }
+  }, [userRole]);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
@@ -238,41 +259,47 @@ export default function App() {
 
         {/* Workspace Tab Nav Toggles */}
         <div className="flex bg-slate-100/80 p-1 rounded-xl border border-gray-200/40">
-          <button
-            onClick={() => { setActiveTab('citizen'); setNewReportLocation(null); }}
-            className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-              activeTab === 'citizen'
-                ? 'bg-white text-indigo-600 shadow-sm'
-                : 'text-gray-500 hover:text-gray-900'
-            }`}
-          >
-            <MapPin className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">Citizen Node</span>
-          </button>
+          {userRole === 'citizen' && (
+            <>
+              <button
+                onClick={() => { setActiveTab('citizen'); setNewReportLocation(null); }}
+                className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                  activeTab === 'citizen'
+                    ? 'bg-white text-indigo-600 shadow-sm'
+                    : 'text-gray-500 hover:text-gray-900'
+                }`}
+              >
+                <MapPin className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Citizen Node</span>
+              </button>
 
-          <button
-            onClick={() => { setActiveTab('league'); setNewReportLocation(null); }}
-            className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-              activeTab === 'league'
-                ? 'bg-white text-indigo-600 shadow-sm'
-                : 'text-gray-500 hover:text-gray-900'
-            }`}
-          >
-            <Award className="w-3.5 h-3.5 text-indigo-500" />
-            <span className="hidden sm:inline">Sentinels League</span>
-          </button>
+              <button
+                onClick={() => { setActiveTab('league'); setNewReportLocation(null); }}
+                className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                  activeTab === 'league'
+                    ? 'bg-white text-indigo-600 shadow-sm'
+                    : 'text-gray-500 hover:text-gray-900'
+                }`}
+              >
+                <Award className="w-3.5 h-3.5 text-indigo-500" />
+                <span className="hidden sm:inline">Sentinels League</span>
+              </button>
+            </>
+          )}
           
-          <button
-            onClick={() => { setActiveTab('ombudsman'); setNewReportLocation(null); }}
-            className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-              activeTab === 'ombudsman'
-                ? 'bg-white text-indigo-600 shadow-sm'
-                : 'text-gray-500 hover:text-gray-900'
-            }`}
-          >
-            <Eye className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">Ombudsman Desk</span>
-          </button>
+          {userRole === 'ombudsman' && (
+            <button
+              onClick={() => { setActiveTab('ombudsman'); setNewReportLocation(null); }}
+              className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                activeTab === 'ombudsman'
+                  ? 'bg-white text-indigo-600 shadow-sm'
+                  : 'text-gray-500 hover:text-gray-900'
+              }`}
+            >
+              <Eye className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Ombudsman Desk</span>
+            </button>
+          )}
 
           <button
             onClick={() => { setActiveTab('scorecard'); setNewReportLocation(null); }}
@@ -289,6 +316,24 @@ export default function App() {
 
         {/* Sync & User Auth Controls */}
         <div className="flex items-center gap-3">
+          {/* Dedicated hackathon/developer test mode toggle */}
+          <button
+            onClick={() => {
+              const newOverride = !overrideRole;
+              setOverrideRole(newOverride);
+              localStorage.setItem('municipal_override', String(newOverride));
+            }}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border transition-all ${
+              overrideRole 
+                ? 'bg-amber-50 border-amber-200 text-amber-700 shadow-sm' 
+                : 'bg-indigo-50 border-indigo-200 text-indigo-700 shadow-sm'
+            }`}
+            title="Toggle Ombudsman / Municipal Mode (Hackathon Evaluation)"
+          >
+            <Shield className="w-3.5 h-3.5 stroke-[2.2]" />
+            <span>{overrideRole ? 'MUNICIPAL' : 'CITIZEN'}</span>
+          </button>
+
           <button
             onClick={() => fetchData(true)}
             disabled={refreshing}

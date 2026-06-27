@@ -102,16 +102,23 @@ export default function ReportMap({
     };
   }, []);
 
-  // Create Custom SVG Markers based on Category and Status
-  const getMarkerIcon = (category: Category, isClosed: boolean, isSelected: boolean) => {
-    const colors = {
-      pothole: '#ef4444', // Red
-      garbage: '#f97316', // Orange
-      water: '#3b82f6',   // Blue
-      lighting: '#eab308' // Yellow
-    };
+  // Create Custom SVG Markers based on Category, Severity, and Status
+  const getMarkerIcon = (report: Report, isSelected: boolean) => {
+    const isClosed = report.status === 'CLOSED_VERIFIED' || report.status === 'RESOLVED';
+    const isHigh = report.severity === 'high';
+    const category = report.category;
 
-    const color = isClosed ? '#22c55e' : colors[category] || '#6b7280';
+    // Synchronize map pin markers dynamically based on payload state
+    // - CLOSED / RESOLVED: Soft Emerald Green checkmark badge icon
+    // - CRITICAL / HIGH URGENCY: Bright Red warning badge marker icon
+    // - MEDIUM / LOW URGENCY: Amber / Yellow indicator badge icon
+    let color = '#eab308'; // Default Amber / Yellow (Medium/Low)
+    if (isClosed) {
+      color = '#10b981'; // Soft Emerald Green
+    } else if (isHigh) {
+      color = '#ef4444'; // Bright Red (Critical/High)
+    }
+
     const size = isSelected ? 40 : 32;
 
     const iconSvg = `
@@ -126,14 +133,14 @@ export default function ReportMap({
           <circle cx="50" cy="45" r="18" fill="#ffffff"/>
           ${
             isClosed
-              ? `<path d="M42,45 L48,51 L58,39" fill="none" stroke="#22c55e" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>`
+              ? `<path d="M42,45 L48,51 L58,39" fill="none" stroke="#10b981" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>`
               : category === 'pothole'
-              ? `<path d="M48,32 L52,32 L51,48 L49,48 Z M48,54 L52,54 L52,58 L48,58 Z" fill="#ef4444" stroke="#ef4444" stroke-width="1"/>`
+              ? `<path d="M48,32 L52,32 L51,48 L49,48 Z M48,54 L52,54 L52,58 L48,58 Z" fill="${color}" stroke="${color}" stroke-width="1"/>`
               : category === 'garbage'
-              ? `<path d="M38,36 L62,36 M42,36 L42,56 A2,2 0 0 0 44,58 L56,58 A2,2 0 0 0 58,56 L58,36 M48,30 L52,30" fill="none" stroke="#f97316" stroke-width="4" stroke-linecap="round"/>`
+              ? `<path d="M38,36 L62,36 M42,36 L42,56 A2,2 0 0 0 44,58 L56,58 A2,2 0 0 0 58,56 L58,36 M48,30 L52,30" fill="none" stroke="${color}" stroke-width="4" stroke-linecap="round"/>`
               : category === 'water'
-              ? `<path d="M50,30 C50,30 38,45 38,51 C38,57 43,62 50,62 C57,62 62,57 62,51 C62,45 50,30 50,30 Z" fill="#3b82f6"/>`
-              : `<circle cx="50" cy="45" r="8" fill="#eab308"/><path d="M50,32 L50,35 M50,55 L50,58 M37,45 L40,45 M60,45 L63,45" stroke="#eab308" stroke-width="2"/>`
+              ? `<path d="M50,30 C50,30 38,45 38,51 C38,57 43,62 50,62 C57,62 62,57 62,51 C62,45 50,30 50,30 Z" fill="${color}"/>`
+              : `<circle cx="50" cy="45" r="8" fill="${color}"/><path d="M50,32 L50,35 M50,55 L50,58 M37,45 L40,45 M60,45 L63,45" stroke="${color}" stroke-width="2"/>`
           }
         </g>
       </svg>
@@ -168,8 +175,8 @@ export default function ReportMap({
     // Add or update markers
     reports.forEach(report => {
       const isSelected = report.id === selectedReportId;
-      const isClosed = report.status === 'CLOSED_VERIFIED';
-      const icon = getMarkerIcon(report.category, isClosed, isSelected);
+      const isClosed = report.status === 'CLOSED_VERIFIED' || report.status === 'RESOLVED';
+      const icon = getMarkerIcon(report, isSelected);
 
       if (markersRef.current[report.id]) {
         // Update position and icon if already exists

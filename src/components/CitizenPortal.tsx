@@ -38,6 +38,10 @@ export default function CitizenPortal({
   const [videoProgress, setVideoProgress] = useState(0);
   const [localVerifiedReports, setLocalVerifiedReports] = useState<string[]>([]);
 
+  // Scanning feedback states for image upload
+  const [isScanningFile, setIsScanningFile] = useState(false);
+  const [fileScanProgress, setFileScanProgress] = useState(0);
+
   // Triage state
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [triageLogs, setTriageLogs] = useState<string[]>([]);
@@ -173,11 +177,29 @@ export default function CitizenPortal({
     } else {
       const reader = new FileReader();
       reader.onloadend = () => {
-        setImage(reader.result as string);
-        setFormStep('location');
-        if (!newReportLocation) {
-          setRandomSFLocation();
-        }
+        const fileData = reader.result as string;
+        
+        // Trigger high-fidelity Google AI Studio scanner overlay
+        setIsScanningFile(true);
+        setFileScanProgress(15);
+        
+        const interval = setInterval(() => {
+          setFileScanProgress(prev => {
+            if (prev >= 100) {
+              clearInterval(interval);
+              setTimeout(() => {
+                setIsScanningFile(false);
+                setImage(fileData);
+                setFormStep('location');
+                if (!newReportLocation) {
+                  setRandomSFLocation();
+                }
+              }, 600);
+              return 100;
+            }
+            return prev + 17; // increment smoothly
+          });
+        }, 200);
       };
       reader.readAsDataURL(file);
     }
@@ -267,10 +289,52 @@ export default function CitizenPortal({
   }, []);
 
   return (
-    <div className="flex flex-col gap-6 h-full max-h-[85vh] overflow-y-auto pr-1">
+    <div className="flex flex-col gap-6 h-full max-h-[85vh] overflow-y-auto pr-1 relative">
+      
+      {/* Google AI Studio Scanner Feedback Overlay */}
+      <AnimatePresence>
+        {isScanningFile && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="absolute inset-0 z-[1200] bg-slate-900/85 backdrop-blur-md rounded-2xl flex flex-col items-center justify-center p-6 text-center shadow-2xl"
+          >
+            {/* High-fidelity Google AI branding & progress */}
+            <div className="relative w-20 h-20 mb-6">
+              <div className="absolute inset-0 rounded-full border-4 border-indigo-500/20"></div>
+              <div className="absolute inset-0 rounded-full border-4 border-t-indigo-500 border-r-emerald-500 animate-spin"></div>
+              <div className="absolute inset-2 bg-slate-950 rounded-full flex items-center justify-center text-[11px] font-mono text-indigo-400 font-bold">
+                {fileScanProgress}%
+              </div>
+            </div>
+
+            <div className="max-w-md flex flex-col gap-3">
+              <h3 className="font-display font-semibold text-xs text-slate-100 tracking-widest uppercase">
+                Google AI Studio Scan
+              </h3>
+              <p className="text-xs text-slate-300 leading-relaxed font-sans px-4">
+                Google AI Studio Engine analyzing geometric infrastructure metrics through Gemini 2.5 Flash...
+              </p>
+              
+              {/* Sleek rolling gradient progress tracker bar */}
+              <div className="w-64 h-1.5 bg-slate-800 rounded-full overflow-hidden mx-auto mt-2 border border-slate-700">
+                <div 
+                  className="h-full bg-gradient-to-r from-blue-500 via-indigo-500 to-emerald-500 transition-all duration-200"
+                  style={{ width: `${fileScanProgress}%` }}
+                />
+              </div>
+              
+              <span className="text-[9px] text-slate-500 font-mono tracking-widest uppercase mt-1">
+                Verifying Frame Topology
+              </span>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
       
       {/* Title & Banner */}
-      <div className="flex flex-col gap-1.5 border-b border-gray-100 pb-4">
+      <div className="flex flex-col gap-1.5 border-b border-gray-100 pb-4 pt-6 md:pt-8">
         <div className="flex items-center gap-2 text-indigo-600">
           <ShieldAlert className="w-6 h-6 stroke-[2.2]" />
           <h2 className="font-display font-semibold text-lg text-gray-900 tracking-tight">Citizen Reporting Nodes</h2>

@@ -29,7 +29,7 @@ export default function PublicScorecard({ stats }: PublicScorecardProps) {
     <div className="flex flex-col gap-6 h-full max-h-[85vh] overflow-y-auto pr-1">
       
       {/* Banner / Title */}
-      <div className="flex flex-col gap-1.5 border-b border-gray-100 pb-4">
+      <div className="flex flex-col gap-1.5 border-b border-gray-100 pb-4 pt-6 md:pt-8">
         <div className="flex items-center gap-2 text-indigo-600">
           <Award className="w-6 h-6 stroke-[2.2]" />
           <h2 className="font-display font-semibold text-lg text-gray-900 tracking-tight">Public Accountability Index</h2>
