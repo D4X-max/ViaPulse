@@ -91,13 +91,14 @@ app.get('/api/stats', (req, res) => {
 
 // 4. Submit a new report with automated Triage, Geolocation Ward, and Deduplication
 app.post('/api/reports', async (req, res) => {
-  const { image, latitude, longitude, reporterName } = req.body;
+  const { image, latitude, longitude, reporterName, reporterEmail } = req.body;
 
   if (!image || !latitude || !longitude) {
     return res.status(400).json({ error: 'Missing required parameters (image, latitude, longitude)' });
   }
 
   const nameOfReporter = reporterName || 'Anonymous Citizen';
+  const emailOfReporter = reporterEmail || '';
   const latNum = parseFloat(latitude);
   const lngNum = parseFloat(longitude);
 
@@ -243,6 +244,7 @@ ${nameOfReporter} and the WardWatch Civic Ombudsman Agent`;
       description: triageResult.description,
       imageUrl: image, // save image directly
       reporterName: nameOfReporter,
+      reporterEmail: emailOfReporter,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
       ward: wardObj.name,

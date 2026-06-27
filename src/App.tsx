@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { ShieldCheck, Shield, Eye, Award, CheckCircle, Navigation, MapPin, RefreshCw, AlertCircle, BarChart3, LogIn, LogOut } from 'lucide-react';
+import { ShieldCheck, Shield, Eye, Award, CheckCircle, Navigation, MapPin, RefreshCw, AlertCircle, BarChart3, LogIn, LogOut, Home, Send, HelpCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import ReportMap from './components/ReportMap';
 import CitizenPortal from './components/CitizenPortal';
@@ -12,6 +12,13 @@ import OnboardingFlow from './components/onboarding/OnboardingFlow';
 import { auth } from './lib/firebase';
 import { signOut, onAuthStateChanged } from 'firebase/auth';
 import AuthGate from './components/AuthGate';
+
+// 10-point Hackathon SPEC Components
+import HomeDashboard from './components/HomeDashboard';
+import ReportHazard from './components/ReportHazard';
+import TrackingHub from './components/TrackingHub';
+import AnalyticsDashboard from './components/AnalyticsDashboard';
+import FloatingChatbot from './components/FloatingChatbot';
 
 export default function App() {
   const [onboardingCompleted, setOnboardingCompleted] = useState<boolean>(() => {
@@ -30,7 +37,7 @@ export default function App() {
   
   const [selectedReport, setSelectedReport] = useState<Report | null>(null);
   const [newReportLocation, setNewReportLocation] = useState<{ latitude: number; longitude: number } | null>(null);
-  const [activeTab, setActiveTab] = useState<'citizen' | 'ombudsman' | 'scorecard' | 'league'>('citizen');
+  const [activeTab, setActiveTab] = useState<'home' | 'report' | 'tracking' | 'ombudsman' | 'league' | 'scorecard'>('home');
   
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -60,9 +67,9 @@ export default function App() {
     if (userRole === 'admin') {
       setActiveTab('ombudsman');
     } else if (userRole === 'citizen') {
-      // Standard citizen default tab is citizen portal
+      // Standard citizen default tab is home portal
       if (activeTab === 'ombudsman') {
-        setActiveTab('citizen');
+        setActiveTab('home');
       }
     }
   }, [userRole]);
@@ -369,15 +376,39 @@ export default function App() {
             {userRole === 'citizen' && (
               <>
                 <button
-                  onClick={() => { setActiveTab('citizen'); setNewReportLocation(null); }}
+                  onClick={() => { setActiveTab('home'); setNewReportLocation(null); }}
                   className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-                    activeTab === 'citizen'
+                    activeTab === 'home'
                       ? 'bg-white text-indigo-600 shadow-sm'
                       : 'text-gray-500 hover:text-gray-900'
                   }`}
                 >
-                  <MapPin className="w-3.5 h-3.5" />
-                  <span>Citizen Node</span>
+                  <Home className="w-3.5 h-3.5 text-indigo-600" />
+                  <span>Home Desk</span>
+                </button>
+
+                <button
+                  onClick={() => { setActiveTab('report'); }}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                    activeTab === 'report'
+                      ? 'bg-white text-indigo-600 shadow-sm'
+                      : 'text-gray-500 hover:text-gray-900'
+                  }`}
+                >
+                  <Send className="w-3.5 h-3.5 text-emerald-500" />
+                  <span>Report Hazard</span>
+                </button>
+
+                <button
+                  onClick={() => { setActiveTab('tracking'); }}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                    activeTab === 'tracking'
+                      ? 'bg-white text-indigo-600 shadow-sm'
+                      : 'text-gray-500 hover:text-gray-900'
+                  }`}
+                >
+                  <MapPin className="w-3.5 h-3.5 text-indigo-600" />
+                  <span>Tracking & Hub</span>
                 </button>
 
                 <button
@@ -388,7 +419,7 @@ export default function App() {
                       : 'text-gray-500 hover:text-gray-900'
                   }`}
                 >
-                  <Award className="w-3.5 h-3.5 text-indigo-500" />
+                  <Award className="w-3.5 h-3.5 text-amber-500" />
                   <span>Sentinels League</span>
                 </button>
               </>
@@ -516,25 +547,61 @@ export default function App() {
           {/* TAB PANEL WORKSPACE: Occupies 7 columns on large desktop */}
           <section className="lg:col-span-7 bg-white rounded-2xl border border-gray-100 shadow-sm p-4 md:p-6 flex flex-col min-h-[450px] lg:min-h-0">
             <AnimatePresence mode="wait">
-              {activeTab === 'citizen' && (
+              {activeTab === 'home' && (
                 <motion.div
-                  key="citizen-tab"
+                  key="home-tab"
                   initial={{ opacity: 0, x: -10 }}
                   animate={{ opacity: 1, x: 0 }}
                   exit={{ opacity: 0, x: -10 }}
                   transition={{ duration: 0.2 }}
-                  className="h-full"
+                  className="h-full overflow-y-auto pr-1"
                 >
-                  <CitizenPortal
+                  <HomeDashboard
+                    user={user}
                     reports={reports}
-                    selectedReport={selectedReport}
                     onSelectReport={(r) => setSelectedReport(r)}
+                    onNavigateToReport={() => setActiveTab('report')}
+                    onNavigateToTracking={() => setActiveTab('tracking')}
+                  />
+                </motion.div>
+              )}
+
+              {activeTab === 'report' && (
+                <motion.div
+                  key="report-tab"
+                  initial={{ opacity: 0, x: -10 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -10 }}
+                  transition={{ duration: 0.2 }}
+                  className="h-full overflow-y-auto pr-1"
+                >
+                  <ReportHazard
+                    user={user}
                     newReportLocation={newReportLocation}
                     setNewReportLocation={setNewReportLocation}
                     onReportCreated={handleReportCreated}
+                    showToast={showToast}
+                  />
+                </motion.div>
+              )}
+
+              {activeTab === 'tracking' && (
+                <motion.div
+                  key="tracking-tab"
+                  initial={{ opacity: 0, x: -10 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -10 }}
+                  transition={{ duration: 0.2 }}
+                  className="h-full overflow-y-auto pr-1"
+                >
+                  <TrackingHub
+                    reports={reports}
+                    selectedReport={selectedReport}
+                    onSelectReport={(r) => setSelectedReport(r)}
                     onUpvote={handleUpvote}
                     onAddComment={handleAddComment}
                     user={user}
+                    showToast={showToast}
                   />
                 </motion.div>
               )}
@@ -546,7 +613,7 @@ export default function App() {
                   animate={{ opacity: 1, x: 0 }}
                   exit={{ opacity: 0, x: -10 }}
                   transition={{ duration: 0.2 }}
-                  className="h-full"
+                  className="h-full overflow-y-auto pr-1"
                 >
                   <OmbudsmanDashboard
                     reports={reports}
@@ -565,9 +632,9 @@ export default function App() {
                   animate={{ opacity: 1, x: 0 }}
                   exit={{ opacity: 0, x: -10 }}
                   transition={{ duration: 0.2 }}
-                  className="h-full overflow-y-auto"
+                  className="h-full overflow-y-auto pr-1"
                 >
-                  <CivicGamification />
+                  <CivicGamification user={user} reports={reports} />
                 </motion.div>
               )}
 
@@ -578,9 +645,9 @@ export default function App() {
                   animate={{ opacity: 1, x: 0 }}
                   exit={{ opacity: 0, x: -10 }}
                   transition={{ duration: 0.2 }}
-                  className="h-full"
+                  className="h-full overflow-y-auto pr-1"
                 >
-                  <PublicScorecard stats={stats} />
+                  <AnalyticsDashboard reports={reports} />
                 </motion.div>
               )}
             </AnimatePresence>
@@ -592,13 +659,16 @@ export default function App() {
               reports={reports}
               selectedReportId={selectedReport?.id}
               onSelectReport={(r) => setSelectedReport(r)}
-              onSelectLocation={activeTab === 'citizen' ? handleSelectLocationFromMap : undefined}
+              onSelectLocation={activeTab === 'report' ? handleSelectLocationFromMap : undefined}
               newReportLocation={newReportLocation}
             />
           </section>
 
         </main>
       )}
+
+      {/* Floating AI Assistant Chatbot */}
+      <FloatingChatbot />
 
       {/* Minimal Footer */}
       <footer className="bg-white border-t border-gray-100 py-3.5 px-6 text-center text-[10px] text-gray-400 font-sans mt-auto flex flex-col sm:flex-row items-center justify-between gap-3">

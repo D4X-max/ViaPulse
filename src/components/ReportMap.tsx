@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import L from 'leaflet';
 import { Report, Category } from '../types';
 
@@ -8,6 +8,26 @@ interface ReportMapProps {
   onSelectReport: (report: Report) => void;
   onSelectLocation?: (lat: number, lng: number) => void;
   newReportLocation?: { latitude: number; longitude: number } | null;
+}
+
+// Custom hook to handle Leaflet map event bindings dynamically
+function useMapEvents(map: L.Map | null, events: { [key: string]: (e: L.LeafletMouseEvent) => void }) {
+  useEffect(() => {
+    if (!map) return;
+    Object.entries(events).forEach(([eventName, handler]) => {
+      map.on(eventName, handler);
+    });
+    return () => {
+      if (!map) return;
+      Object.entries(events).forEach(([eventName, handler]) => {
+        try {
+          map.off(eventName, handler);
+        } catch (e) {
+          // ignore
+        }
+      });
+    };
+  }, [map, events]);
 }
 
 export default function ReportMap({
@@ -24,6 +44,34 @@ export default function ReportMap({
 
   const onSelectLocationRef = useRef(onSelectLocation);
   const onSelectReportRef = useRef(onSelectReport);
+
+  // Categories checklist filters state
+  const [selectedFilters, setSelectedFilters] = useState<{ [key: string]: boolean }>({
+    pothole: true,
+    garbage: true,
+    water: true,
+    lighting: true,
+    trees: true,
+    traffic_signals: true,
+  });
+
+  const categoriesList = [
+    { id: 'pothole', label: 'Potholes' },
+    { id: 'garbage', label: 'Garbage' },
+    { id: 'water', label: 'Water Leak' },
+    { id: 'lighting', label: 'Streetlight' },
+    { id: 'trees', label: 'Trees' },
+    { id: 'traffic_signals', label: 'Traffic Signals' },
+  ];
+
+  // Wire up useMapEvents hook to capture click events on map
+  useMapEvents(mapRef.current, {
+    click: (e) => {
+      if (onSelectLocationRef.current) {
+        onSelectLocationRef.current(e.latlng.lat, e.latlng.lng);
+      }
+    }
+  });
 
   useEffect(() => {
     onSelectLocationRef.current = onSelectLocation;
@@ -47,7 +95,7 @@ export default function ReportMap({
       attributionControl: false
     });
 
-    // Dark styled map layer (CartoDB Positron is clean and beautiful)
+    // Voyager light tile layer is beautiful and responsive
     L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
       maxZoom: 19,
     }).addTo(map);
@@ -61,13 +109,6 @@ export default function ReportMap({
       }
     });
     resizeObserver.observe(mapContainerRef.current);
-
-    // Enable clicking to place a pin
-    map.on('click', (e) => {
-      if (onSelectLocationRef.current) {
-        onSelectLocationRef.current(e.latlng.lat, e.latlng.lng);
-      }
-    });
 
     return () => {
       resizeObserver.disconnect();
@@ -154,13 +195,20 @@ export default function ReportMap({
     });
   };
 
-  // Sync Markers
+  // Sync Markers according to Filter Settings
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
 
-    // Clear existing markers that are not in the new reports list
-    const currentIds = new Set(reports.map(r => r.id));
+    // Filter reports locally
+    const filteredReports = reports.filter(r => {
+      const catKey = r.category || 'pothole';
+      return selectedFilters[catKey] === true;
+    });
+
+    const currentIds = new Set(filteredReports.map(r => r.id));
+    
+    // Clear existing markers that are not in the filtered reports list
     Object.keys(markersRef.current).forEach(id => {
       if (!currentIds.has(id)) {
         try {
@@ -173,10 +221,33 @@ export default function ReportMap({
     });
 
     // Add or update markers
-    reports.forEach(report => {
+    filteredReports.forEach(report => {
       const isSelected = report.id === selectedReportId;
       const isClosed = report.status === 'CLOSED_VERIFIED' || report.status === 'RESOLVED';
       const icon = getMarkerIcon(report, isSelected);
+
+      const popupHtml = `
+        <div class="p-2 font-sans min-w-[220px] max-w-[240px] text-gray-800">
+          <div class="rounded-lg overflow-hidden border border-gray-100 mb-2 shadow-sm">
+            <img src="${report.imageUrl || 'https://images.unsplash.com/photo-1515162305285-0293e4767cc2'}" class="w-full h-24 object-cover" referrerPolicy="no-referrer" />
+          </div>
+          <div class="flex items-center justify-between gap-1.5 mb-1.5">
+            <span class="text-[9px] uppercase font-bold px-1.5 py-0.5 rounded bg-slate-900 text-slate-100 font-mono tracking-wider">
+              📍 ${report.category.toUpperCase()}
+            </span>
+            <span class="text-[9px] font-extrabold uppercase px-1.5 py-0.5 rounded ${
+              isClosed ? 'bg-emerald-50 text-emerald-700 border border-emerald-100' : 'bg-indigo-50 text-indigo-700 border border-indigo-100'
+            }">
+              ${report.status}
+            </span>
+          </div>
+          <p class="text-xs text-gray-700 font-medium leading-normal mb-2 mt-1 truncate-3-lines">${report.description || 'No description provided.'}</p>
+          <div class="flex items-center justify-between border-t border-gray-100 pt-2 text-[10px] text-gray-400 font-mono">
+            <span class="flex items-center gap-1">💬 ${report.comments?.length || 0} Comments</span>
+            <span class="flex items-center gap-1">👍 ${report.upvotes || 0} Escalations</span>
+          </div>
+        </div>
+      `;
 
       if (markersRef.current[report.id]) {
         // Update position and icon if already exists
@@ -184,6 +255,7 @@ export default function ReportMap({
         try {
           marker.setLatLng([report.latitude, report.longitude]);
           marker.setIcon(icon);
+          marker.bindPopup(popupHtml, { closeButton: false });
           if (isSelected) {
             marker.setZIndexOffset(1000);
           } else {
@@ -197,6 +269,7 @@ export default function ReportMap({
         try {
           const marker = L.marker([report.latitude, report.longitude], { icon })
             .addTo(map)
+            .bindPopup(popupHtml, { closeButton: false })
             .on('click', () => {
               if (onSelectReportRef.current) {
                 onSelectReportRef.current(report);
@@ -209,7 +282,7 @@ export default function ReportMap({
         }
       }
     });
-  }, [reports, selectedReportId]);
+  }, [reports, selectedReportId, selectedFilters]);
 
   // Center Map on selected report
   useEffect(() => {
@@ -223,6 +296,12 @@ export default function ReportMap({
           animate: true,
           duration: 0.8
         });
+        
+        // Autostart popup for selected pin if exists
+        const marker = markersRef.current[selectedReportId];
+        if (marker) {
+          marker.openPopup();
+        }
       } catch (e) {
         // ignore
       }
@@ -276,9 +355,41 @@ export default function ReportMap({
     }
   }, [newReportLocation]);
 
+  const toggleFilter = (id: string) => {
+    setSelectedFilters(prev => ({
+      ...prev,
+      [id]: !prev[id]
+    }));
+  };
+
   return (
-    <div className="relative w-full h-full rounded-2xl overflow-hidden shadow-inner border border-gray-100">
-      <div id="map-canvas" ref={mapContainerRef} className="w-full h-full min-h-[350px] md:min-h-[500px]" />
+    <div className="relative w-full h-full rounded-2xl overflow-hidden shadow-lg border border-slate-200 bg-white flex flex-col">
+      {/* 6. Checkbox Row at the top */}
+      <div className="bg-slate-950 p-2.5 flex items-center gap-2 overflow-x-auto scrollbar-none z-50 border-b border-slate-800">
+        <span className="text-[10px] text-slate-400 font-mono uppercase tracking-widest min-w-max mr-1">Filters:</span>
+        <div className="flex gap-2 min-w-max">
+          {categoriesList.map((cat) => (
+            <label 
+              key={cat.id} 
+              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-bold cursor-pointer transition-all border ${
+                selectedFilters[cat.id]
+                  ? 'bg-indigo-600/10 border-indigo-500/40 text-indigo-400'
+                  : 'bg-slate-900 border-slate-800 text-slate-500'
+              }`}
+            >
+              <input 
+                type="checkbox" 
+                checked={!!selectedFilters[cat.id]} 
+                onChange={() => toggleFilter(cat.id)}
+                className="hidden"
+              />
+              <span>{cat.label}</span>
+            </label>
+          ))}
+        </div>
+      </div>
+
+      <div id="map-canvas" ref={mapContainerRef} className="w-full flex-1 min-h-[350px]" />
       
       {/* Map Guidelines overlay */}
       <div className="absolute bottom-4 left-4 z-50 bg-white/95 backdrop-blur-sm px-3 py-1.5 rounded-lg border border-gray-100 shadow-sm text-xs text-gray-500 font-medium select-none flex items-center gap-2">

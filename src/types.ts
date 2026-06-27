@@ -27,6 +27,7 @@ export interface Report {
   description: string;
   imageUrl: string;
   reporterName: string;
+  reporterEmail?: string;
   createdAt: string;
   updatedAt: string;
   ward: string;
