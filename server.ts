@@ -507,6 +507,137 @@ Please return a JSON object with:
   }
 });
 
+// 9. Dynamic, Context-Aware ViaPulse AI Copilot chatbot
+app.post('/api/chat', async (req, res) => {
+  const { message, currentUser, myReports, wardStats } = req.body;
+
+  if (!message) {
+    return res.status(400).json({ error: 'Message is required' });
+  }
+
+  try {
+    if (ai) {
+      // Build the prompt instructions
+      const userContext = currentUser || { name: 'Anonymous Citizen', email: '' };
+      const reportsContext = myReports || [];
+      const statsContext = wardStats || [];
+
+      const systemInstruction = `You are the ViaPulse AI Copilot, an autonomous, context-aware municipal utility agent.
+You are assisting the logged-in citizen on the WardWatch decentralised civic ledger.
+Your replies must be based on the actual, live data provided below. Do not make up arbitrary or false facts.
+
+CONTEXT SCOPES:
+- Active Logged-in User: ${JSON.stringify(userContext)}
+- User's Reports: ${JSON.stringify(reportsContext)}
+- Municipal Ward Statistics (wardStats): ${JSON.stringify(statsContext)}
+
+DETERMINISTIC FALLBACK & BEHAVIOR RULES:
+1. STATUS OF COMPLAINTS / UNRESOLVED ISSUES:
+   If the user asks about an unresolved complaint, find their latest ticket entry in "User's Reports", parse its 'status' and 'history' array timeline, and explain exactly where it sits in the municipal pipeline. If they have no reports, kindly invite them to submit their first report to start tracking.
+2. RESOLUTION TIMES / ESTIMATES:
+   If the user asks about resolution times, calculate the exact mathematical average of 'avgResolutionTimeHours' across all wards in the 'wardStats' payload and display it as an accurate, data-backed time estimate (e.g. "The average resolution time is X.XX hours across the city").
+3. POINTS & CIVIC GAMIFICATION:
+   If the user asks about points, gamification, badges, or standings, look up their placement using the dynamic scoring system rules:
+   - Scoring Rules: +50 Hero Points (PTS) per submitted report; +10 Hero Points (PTS) per upvote/confirmation.
+   - Badges Criteria:
+     * "Road Hero 🏆": 5+ reports.
+     * "Civic Sentinel 🌟": 15+ community confirmations/upvotes.
+     * "Clean City Champion 💪": 200+ total Hero Points (PTS).
+   Calculate their actual scores dynamically from "User's Reports":
+     - Number of reports = ${reportsContext.length}
+     - Total upvotes gathered = ${reportsContext.reduce((acc: number, r: any) => acc + (r.upvotes || 0), 0)}
+     - Computed Points = (reports * 50) + (upvotes * 10) = ${reportsContext.length * 50 + reportsContext.reduce((acc: number, r: any) => acc + (r.upvotes || 0), 0) * 10} PTS.
+     - Display their precise progress toward these badges and list what badges they have unlocked or are close to.
+
+AGENTIC TOOL CALLS (AUTOMATION COMMANDS):
+If the user's message is an explicit command or implies a physical layout change/filtering on the dashboard or map (e.g., "show potholes on the map", "go to achievements", "switch to analytics", "clear filters"), you MUST append a structured JSON tool call wrapper at the very end of your response, enclosed inside a <tool_call>...</tool_call> block.
+Supported tool call structures:
+- FILTER_MAP(category): To filter map markers to a specific category.
+  Format: <tool_call>{"action": "FILTER_MAP", "category": "pothole"}</tool_call>
+  (Allowed category values: 'pothole', 'garbage', 'water', 'lighting', 'trees', 'traffic_signals', or null to clear filter)
+- NAVIGATE_TO(tabName): To switch the user's active view.
+  Format: <tool_call>{"action": "NAVIGATE_TO", "tab": "league"}</tool_call>
+  (Allowed tab values: 'home', 'report', 'tracking', 'league', 'scorecard')
+
+Keep your response structured, highly readable, friendly, professional, and clear.`;
+
+      const response = await ai.models.generateContent({
+        model: 'gemini-3.5-flash',
+        contents: message,
+        config: {
+          systemInstruction,
+          temperature: 0.7,
+        },
+      });
+
+      res.json({ text: response.text });
+    } else {
+      // Graceful fallback when Gemini API is simulated/mocked
+      console.log('Simulating Copilot response...');
+      let responseText = `I am processing your inquiry across our autonomous civic nodes. Please feel free to check the public indexes for exact SLA statistics.`;
+      const lowerText = message.toLowerCase();
+
+      if (lowerText.includes("why hasn't my complaint") || lowerText.includes("complaint") || lowerText.includes("status") || lowerText.includes("resolved")) {
+        if (myReports && myReports.length > 0) {
+          const latest = myReports[0];
+          responseText = `Checking your latest complaint (ID: ${latest.id}, category: ${latest.category}). The status is currently **${latest.status}**. According to its timeline, it was registered on ${new Date(latest.createdAt).toLocaleDateString()} and is being tracked in ${latest.ward}.`;
+        } else {
+          responseText = `You currently have no active complaints filed. Log a new hazard using the "Report Hazard" camera to track its status on the blockchain!`;
+        }
+      } else if (lowerText.includes("hero") || lowerText.includes("point") || lowerText.includes("gamification") || lowerText.includes("badge") || lowerText.includes("leaderboard")) {
+        const count = myReports ? myReports.length : 0;
+        const upvotes = myReports ? myReports.reduce((acc: number, r: any) => acc + (r.upvotes || 0), 0) : 0;
+        const pts = (count * 50) + (upvotes * 10);
+        responseText = `You currently have **${pts} Hero Points (PTS)** computed from ${count} reports and ${upvotes} community upvotes.
+To rank up:
+- Submit ${5 - count > 0 ? 5 - count : 0} more reports to earn **Road Hero 🏆**
+- Garner ${15 - upvotes > 0 ? 15 - upvotes : 0} more confirmations to earn **Civic Sentinel 🌟**
+- Earn ${200 - pts > 0 ? 200 - pts : 0} more points to claim the **Clean City Champion 💪** crown!\n\n<tool_call>{"action": "NAVIGATE_TO", "tab": "league"}</tool_call>`;
+      } else if (lowerText.includes("time") || lowerText.includes("resolution") || lowerText.includes("how long") || lowerText.includes("pothole")) {
+        if (wardStats && wardStats.length > 0) {
+          const sum = wardStats.reduce((acc: number, w: any) => acc + (w.avgResolutionTimeHours || 24.5), 0);
+          const avg = (sum / wardStats.length).toFixed(1);
+          responseText = `According to our real-time municipal ward scorecard, the average hazard resolution time is currently **${avg} hours** across all wards, with a high SLA compliance standard.`;
+        } else {
+          responseText = `The average resolution time for high-severity pothole or public infrastructure repair works is currently **24.5 hours**, with high municipal compliance.`;
+        }
+        
+        if (lowerText.includes("pothole") && lowerText.includes("map")) {
+          responseText += `\n\n<tool_call>{"action": "FILTER_MAP", "category": "pothole"}</tool_call>`;
+        }
+      }
+
+      // Add direct check for other navigation/filtering keywords in fallback mode
+      if (lowerText.includes("show") && lowerText.includes("pothole") && lowerText.includes("map")) {
+        responseText = `Certainly! I have filtered the interactive map to display only active pothole reports.\n\n<tool_call>{"action": "FILTER_MAP", "category": "pothole"}</tool_call>`;
+      } else if (lowerText.includes("show") && lowerText.includes("garbage") && lowerText.includes("map")) {
+        responseText = `Filtering the map to display active trash and garbage disposal reports.\n\n<tool_call>{"action": "FILTER_MAP", "category": "garbage"}</tool_call>`;
+      } else if (lowerText.includes("show") && lowerText.includes("water") && lowerText.includes("map")) {
+        responseText = `Filtering map markers to show water-leak reports.\n\n<tool_call>{"action": "FILTER_MAP", "category": "water"}</tool_call>`;
+      } else if (lowerText.includes("show") && (lowerText.includes("streetlight") || lowerText.includes("lighting")) && lowerText.includes("map")) {
+        responseText = `Sure, I've adjusted the map filter to only show streetlight and electrical hazards.\n\n<tool_call>{"action": "FILTER_MAP", "category": "lighting"}</tool_call>`;
+      } else if (lowerText.includes("clear filter") || lowerText.includes("show all reports") || lowerText.includes("reset map")) {
+        responseText = `Resetting all map filters. All reported hazard markers are now fully visible on the map canvas.\n\n<tool_call>{"action": "FILTER_MAP", "category": null}</tool_call>`;
+      } else if (lowerText.includes("go to") && (lowerText.includes("achievements") || lowerText.includes("leaderboard") || lowerText.includes("league") || lowerText.includes("points"))) {
+        responseText = `Switching your view to the Sentinel Leaderboard & Gamification arena.\n\n<tool_call>{"action": "NAVIGATE_TO", "tab": "league"}</tool_call>`;
+      } else if (lowerText.includes("go to") && (lowerText.includes("report") || lowerText.includes("submit") || lowerText.includes("camera") || lowerText.includes("file"))) {
+        responseText = `Let's file a new hazard report. Opening the visual report creator page for you.\n\n<tool_call>{"action": "NAVIGATE_TO", "tab": "report"}</tool_call>`;
+      } else if (lowerText.includes("go to") && (lowerText.includes("track") || lowerText.includes("my complaints") || lowerText.includes("my tickets"))) {
+        responseText = `Opening your citizen complaint tracking center.\n\n<tool_call>{"action": "NAVIGATE_TO", "tab": "tracking"}</tool_call>`;
+      } else if (lowerText.includes("go to") && (lowerText.includes("analytics") || lowerText.includes("scorecard") || lowerText.includes("ward stats"))) {
+        responseText = `Loading the municipal Analytics Dashboard and scorecard.\n\n<tool_call>{"action": "NAVIGATE_TO", "tab": "scorecard"}</tool_call>`;
+      } else if (lowerText.includes("go to") && (lowerText.includes("home") || lowerText.includes("dashboard"))) {
+        responseText = `Navigating back to your primary Home Dashboard.\n\n<tool_call>{"action": "NAVIGATE_TO", "tab": "home"}</tool_call>`;
+      }
+
+      res.json({ text: responseText });
+    }
+  } catch (error) {
+    console.error('Error in Copilot chatbot processing:', error);
+    res.status(500).json({ error: 'Server error during Chatbot request.' });
+  }
+});
+
 // Global JSON error handler for express parsing issues and route failures
 app.use((err: any, req: any, res: any, next: any) => {
   if (err.type === 'entity.too.large' || err.status === 413) {

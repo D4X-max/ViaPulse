@@ -8,6 +8,7 @@ interface ReportMapProps {
   onSelectReport: (report: Report) => void;
   onSelectLocation?: (lat: number, lng: number) => void;
   newReportLocation?: { latitude: number; longitude: number } | null;
+  categoryFilter?: string | null;
 }
 
 // Custom hook to handle Leaflet map event bindings dynamically
@@ -35,7 +36,8 @@ export default function ReportMap({
   selectedReportId,
   onSelectReport,
   onSelectLocation,
-  newReportLocation
+  newReportLocation,
+  categoryFilter
 }: ReportMapProps) {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
@@ -54,6 +56,29 @@ export default function ReportMap({
     trees: true,
     traffic_signals: true,
   });
+
+  // Handle external category filter updates from AI Copilot
+  useEffect(() => {
+    if (categoryFilter) {
+      setSelectedFilters({
+        pothole: categoryFilter === 'pothole',
+        garbage: categoryFilter === 'garbage',
+        water: categoryFilter === 'water',
+        lighting: categoryFilter === 'lighting',
+        trees: categoryFilter === 'trees',
+        traffic_signals: categoryFilter === 'traffic_signals',
+      });
+    } else {
+      setSelectedFilters({
+        pothole: true,
+        garbage: true,
+        water: true,
+        lighting: true,
+        trees: true,
+        traffic_signals: true,
+      });
+    }
+  }, [categoryFilter]);
 
   const categoriesList = [
     { id: 'pothole', label: 'Potholes' },

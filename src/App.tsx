@@ -38,6 +38,7 @@ export default function App() {
   const [selectedReport, setSelectedReport] = useState<Report | null>(null);
   const [newReportLocation, setNewReportLocation] = useState<{ latitude: number; longitude: number } | null>(null);
   const [activeTab, setActiveTab] = useState<'home' | 'report' | 'tracking' | 'ombudsman' | 'league' | 'scorecard'>('home');
+  const [mapCategoryFilter, setMapCategoryFilter] = useState<string | null>(null);
   
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -661,6 +662,7 @@ export default function App() {
               onSelectReport={(r) => setSelectedReport(r)}
               onSelectLocation={activeTab === 'report' ? handleSelectLocationFromMap : undefined}
               newReportLocation={newReportLocation}
+              categoryFilter={mapCategoryFilter}
             />
           </section>
 
@@ -668,7 +670,13 @@ export default function App() {
       )}
 
       {/* Floating AI Assistant Chatbot */}
-      <FloatingChatbot />
+      <FloatingChatbot 
+        user={user} 
+        reports={reports} 
+        wardStats={stats?.wardStats || []} 
+        onNavigate={setActiveTab}
+        onFilterMap={setMapCategoryFilter}
+      />
 
       {/* Minimal Footer */}
       <footer className="bg-white border-t border-gray-100 py-3.5 px-6 text-center text-[10px] text-gray-400 font-sans mt-auto flex flex-col sm:flex-row items-center justify-between gap-3">
