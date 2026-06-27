@@ -10,7 +10,8 @@ import TopographicBackground from './components/TopographicBackground';
 import { Report, DashboardStats } from './types';
 import OnboardingFlow from './components/onboarding/OnboardingFlow';
 import { auth } from './lib/firebase';
-import { signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged, User } from 'firebase/auth';
+import { signOut, onAuthStateChanged } from 'firebase/auth';
+import AuthGate from './components/AuthGate';
 
 export default function App() {
   const [onboardingCompleted, setOnboardingCompleted] = useState<boolean>(() => {
@@ -36,23 +37,29 @@ export default function App() {
   const [notification, setNotification] = useState<{ type: 'success' | 'info' | 'error'; text: string } | null>(null);
 
   // Authentication State
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<any | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
 
-  // Dedicated developer/municipal override toggle for presentation/hackathon
-  const [overrideRole, setOverrideRole] = useState<boolean>(() => {
-    return localStorage.getItem('municipal_override') === 'true';
-  });
+  // Create a clean userRole state hook: 'citizen' | 'admin' | null
+  const [userRole, setUserRole] = useState<'citizen' | 'admin' | null>(null);
 
-  // Derived userRole state field: 'ombudsman' if email is a government email or if local override is enabled.
-  // Otherwise standard citizen.
-  const userRole = (user && (user.email?.endsWith('.gov') || user.email === 'ombudsman@viapulse.gov')) || overrideRole ? 'ombudsman' : 'citizen';
+  // Sync userRole dynamically based on authentication state
+  useEffect(() => {
+    if (user) {
+      const isGov = user.email?.endsWith('.gov') || 
+                    user.email === 'ombudsman@viapulse.gov' || 
+                    user.email === 'admin@city.gov';
+      setUserRole(isGov ? 'admin' : 'citizen');
+    } else {
+      setUserRole(null);
+    }
+  }, [user]);
 
   // Auto-route active tab on role changes or mount
   useEffect(() => {
-    if (userRole === 'ombudsman') {
+    if (userRole === 'admin') {
       setActiveTab('ombudsman');
-    } else {
+    } else if (userRole === 'citizen') {
       // Standard citizen default tab is citizen portal
       if (activeTab === 'ombudsman') {
         setActiveTab('citizen');
@@ -63,25 +70,25 @@ export default function App() {
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       setUser(currentUser);
+      if (currentUser) {
+        const isGov = currentUser.email?.endsWith('.gov') || 
+                      currentUser.email === 'ombudsman@viapulse.gov' || 
+                      currentUser.email === 'admin@city.gov';
+        setUserRole(isGov ? 'admin' : 'citizen');
+      } else {
+        setUserRole(null);
+      }
       setAuthLoading(false);
     });
     return () => unsubscribe();
   }, []);
 
-  const handleSignIn = async () => {
-    const provider = new GoogleAuthProvider();
-    try {
-      await signInWithPopup(auth, provider);
-      showToast('success', 'Successfully authenticated via Google services!');
-    } catch (err: any) {
-      console.error('Authentication failure:', err);
-      showToast('error', `Authentication failed: ${err.message || err}`);
-    }
-  };
-
   const handleSignOut = async () => {
     try {
       await signOut(auth);
+      setUser(null);
+      setUserRole(null);
+      localStorage.removeItem('municipal_override');
       showToast('success', 'Logged out of civic node.');
     } catch (err: any) {
       console.error('Sign-out failure:', err);
@@ -239,101 +246,184 @@ export default function App() {
     );
   }
 
+  // If user is not signed in or role is not resolved, display the elegant dual-path Auth Gate
+  if (!user && !userRole) {
+    return (
+      <div className="min-h-screen bg-[#0c231c] font-sans flex flex-col justify-center items-center antialiased relative z-0 p-4">
+        <TopographicBackground />
+        
+        {/* Absolute Header Branding */}
+        <div className="absolute top-6 left-6 z-10 select-none">
+          <div className="flex items-center bg-black px-3.5 py-2 rounded-xl border border-slate-900 shadow-lg h-11">
+            <span className="font-display font-black tracking-wide text-sm sm:text-base flex items-center leading-none">
+              <span className="text-[#f14d24]">VIA</span>
+              <span className="text-[#00af50] ml-1.5">PULSE</span>
+            </span>
+          </div>
+        </div>
+
+        <AuthGate 
+          onAuthSuccess={(authenticatedUser, role) => {
+            setUser(authenticatedUser);
+            setUserRole(role);
+          }} 
+          showToast={showToast}
+        />
+        
+        {/* Toast Notification Container inside AuthGate */}
+        <AnimatePresence>
+          {notification && (
+            <motion.div
+              initial={{ opacity: 0, y: -20, scale: 0.95 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: -20, scale: 0.95 }}
+              className="fixed top-6 left-1/2 -translate-x-1/2 z-[1100] w-full max-w-md px-4"
+            >
+              <div className={`p-4 rounded-xl border shadow-lg flex items-start gap-3 backdrop-blur-md ${
+                notification.type === 'success'
+                  ? 'bg-emerald-50/95 border-emerald-100 text-emerald-800'
+                  : notification.type === 'error'
+                  ? 'bg-rose-50/95 border-rose-100 text-rose-800'
+                  : 'bg-indigo-50/95 border-indigo-100 text-indigo-800'
+              }`}>
+                {notification.type === 'success' ? (
+                  <CheckCircle className="w-5 h-5 text-emerald-600 shrink-0" />
+                ) : notification.type === 'error' ? (
+                  <AlertCircle className="w-5 h-5 text-rose-600 shrink-0" />
+                ) : (
+                  <Navigation className="w-5 h-5 text-indigo-600 shrink-0" />
+                )}
+                <div className="flex-1 text-xs text-slate-800">
+                  <span className="font-bold">WardWatch Sentinel</span>
+                  <p className="mt-0.5 leading-normal opacity-90">{notification.text}</p>
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-[#0c231c] font-sans flex flex-col antialiased relative z-0">
       <TopographicBackground />
       
       {/* 1. Header/Navigation Brand Bar */}
-      <header className="bg-white border-b border-gray-100 sticky top-0 z-[1000] px-4 md:px-8 py-3.5 flex items-center justify-between shadow-sm">
-        <div className="flex items-center gap-3">
-          {/* Logo Icon */}
-          <div className="w-10 h-10 rounded-xl bg-indigo-600 flex items-center justify-center text-white shadow-md shadow-indigo-200">
-            <ShieldCheck className="w-5.5 h-5.5 stroke-[2.2]" />
+      <header className="bg-white border-b border-gray-100 sticky top-0 z-[1000] px-4 md:px-8 py-3.5 flex flex-col gap-3 md:flex-row md:items-center md:justify-between shadow-sm">
+        <div className="flex items-center justify-between w-full md:w-auto">
+          {/* Brand Logo */}
+          <div className="flex items-center select-none">
+            <div className="flex items-center bg-black px-3.5 py-1.5 rounded-lg border border-slate-900 shadow-sm h-10">
+              <span className="font-display font-black tracking-wide text-xs sm:text-sm flex items-center leading-none">
+                <span className="text-[#f14d24]">VIA</span>
+                <span className="text-[#00af50] ml-1">PULSE</span>
+              </span>
+            </div>
           </div>
-          <div className="flex flex-col">
-            <h1 className="font-display font-bold text-gray-900 text-lg leading-tight tracking-tight flex items-center gap-1.5">
-              ViaPulse
-            </h1>
+          
+          {/* Controls side on mobile */}
+          <div className="flex items-center gap-2 md:hidden">
+            <button
+              onClick={() => fetchData(true)}
+              disabled={refreshing}
+              className="p-1.5 rounded-lg bg-slate-50 hover:bg-slate-100 text-gray-500 disabled:opacity-50 transition-all border border-gray-100"
+              title="Refresh Data Logs"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${refreshing ? 'animate-spin text-indigo-600' : ''}`} />
+            </button>
+
+            {authLoading ? (
+              <div className="w-6 h-6 rounded-full border-2 border-indigo-600 border-t-transparent animate-spin"></div>
+            ) : user ? (
+              <div className="flex items-center gap-1.5 pl-1.5 border-l border-gray-100">
+                <img
+                  src={user.photoURL || `https://api.dicebear.com/7.x/adventurer/svg?seed=${user.email}`}
+                  alt={user.displayName || 'User'}
+                  className="w-7 h-7 rounded-full border border-indigo-100"
+                  referrerPolicy="no-referrer"
+                />
+                <button
+                  onClick={handleSignOut}
+                  className="p-1.5 rounded-lg text-gray-400 hover:text-rose-600 hover:bg-rose-50 transition-colors"
+                  title="Sign Out"
+                >
+                  <LogOut className="w-4 h-4" />
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={() => { setUser(null); setUserRole(null); }}
+                className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-bold text-white bg-indigo-600 hover:bg-indigo-700 transition-all shadow-sm"
+              >
+                <LogIn className="w-3 h-3" />
+                <span>Sign In</span>
+              </button>
+            )}
           </div>
         </div>
 
         {/* Workspace Tab Nav Toggles */}
-        <div className="flex bg-slate-100/80 p-1 rounded-xl border border-gray-200/40">
-          {userRole === 'citizen' && (
-            <>
-              <button
-                onClick={() => { setActiveTab('citizen'); setNewReportLocation(null); }}
-                className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-                  activeTab === 'citizen'
-                    ? 'bg-white text-indigo-600 shadow-sm'
-                    : 'text-gray-500 hover:text-gray-900'
-                }`}
-              >
-                <MapPin className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">Citizen Node</span>
-              </button>
+        <div className="flex bg-slate-100/80 p-1 rounded-xl border border-gray-200/40 w-full md:w-auto overflow-x-auto scrollbar-none justify-start sm:justify-center">
+          <div className="flex items-center gap-1 min-w-max w-full justify-around sm:justify-center">
+            {userRole === 'citizen' && (
+              <>
+                <button
+                  onClick={() => { setActiveTab('citizen'); setNewReportLocation(null); }}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                    activeTab === 'citizen'
+                      ? 'bg-white text-indigo-600 shadow-sm'
+                      : 'text-gray-500 hover:text-gray-900'
+                  }`}
+                >
+                  <MapPin className="w-3.5 h-3.5" />
+                  <span>Citizen Node</span>
+                </button>
 
+                <button
+                  onClick={() => { setActiveTab('league'); setNewReportLocation(null); }}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                    activeTab === 'league'
+                      ? 'bg-white text-indigo-600 shadow-sm'
+                      : 'text-gray-500 hover:text-gray-900'
+                  }`}
+                >
+                  <Award className="w-3.5 h-3.5 text-indigo-500" />
+                  <span>Sentinels League</span>
+                </button>
+              </>
+            )}
+            
+            {userRole === 'admin' && (
               <button
-                onClick={() => { setActiveTab('league'); setNewReportLocation(null); }}
-                className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-                  activeTab === 'league'
+                onClick={() => { setActiveTab('ombudsman'); setNewReportLocation(null); }}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                  activeTab === 'ombudsman'
                     ? 'bg-white text-indigo-600 shadow-sm'
                     : 'text-gray-500 hover:text-gray-900'
                 }`}
               >
-                <Award className="w-3.5 h-3.5 text-indigo-500" />
-                <span className="hidden sm:inline">Sentinels League</span>
+                <Eye className="w-3.5 h-3.5" />
+                <span>Ombudsman Desk</span>
               </button>
-            </>
-          )}
-          
-          {userRole === 'ombudsman' && (
+            )}
+
             <button
-              onClick={() => { setActiveTab('ombudsman'); setNewReportLocation(null); }}
-              className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-                activeTab === 'ombudsman'
+              onClick={() => { setActiveTab('scorecard'); setNewReportLocation(null); }}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                activeTab === 'scorecard'
                   ? 'bg-white text-indigo-600 shadow-sm'
                   : 'text-gray-500 hover:text-gray-900'
               }`}
             >
-              <Eye className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Ombudsman Desk</span>
+              <BarChart3 className="w-3.5 h-3.5 text-rose-500" />
+              <span>Public Indexes</span>
             </button>
-          )}
-
-          <button
-            onClick={() => { setActiveTab('scorecard'); setNewReportLocation(null); }}
-            className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-              activeTab === 'scorecard'
-                ? 'bg-white text-indigo-600 shadow-sm'
-                : 'text-gray-500 hover:text-gray-900'
-            }`}
-          >
-            <BarChart3 className="w-3.5 h-3.5 text-rose-500" />
-            <span className="hidden sm:inline">Public Indexes</span>
-          </button>
+          </div>
         </div>
 
-        {/* Sync & User Auth Controls */}
-        <div className="flex items-center gap-3">
-          {/* Dedicated hackathon/developer test mode toggle */}
-          <button
-            onClick={() => {
-              const newOverride = !overrideRole;
-              setOverrideRole(newOverride);
-              localStorage.setItem('municipal_override', String(newOverride));
-            }}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border transition-all ${
-              overrideRole 
-                ? 'bg-amber-50 border-amber-200 text-amber-700 shadow-sm' 
-                : 'bg-indigo-50 border-indigo-200 text-indigo-700 shadow-sm'
-            }`}
-            title="Toggle Ombudsman / Municipal Mode (Hackathon Evaluation)"
-          >
-            <Shield className="w-3.5 h-3.5 stroke-[2.2]" />
-            <span>{overrideRole ? 'MUNICIPAL' : 'CITIZEN'}</span>
-          </button>
-
+        {/* Sync & User Auth Controls for Desktop */}
+        <div className="hidden md:flex items-center gap-3">
           <button
             onClick={() => fetchData(true)}
             disabled={refreshing}
@@ -353,7 +443,7 @@ export default function App() {
                 className="w-9 h-9 rounded-full border border-indigo-100"
                 referrerPolicy="no-referrer"
               />
-              <div className="hidden md:flex flex-col text-left">
+              <div className="flex flex-col text-left">
                 <span className="text-xs font-semibold text-gray-800 leading-tight">
                   {user.displayName || 'Sentinel'}
                 </span>
@@ -371,7 +461,7 @@ export default function App() {
             </div>
           ) : (
             <button
-              onClick={handleSignIn}
+              onClick={() => { setUser(null); setUserRole(null); }}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 transition-all shadow-sm"
             >
               <LogIn className="w-3.5 h-3.5" />
@@ -421,7 +511,7 @@ export default function App() {
         </div>
       ) : (
         /* 3. Main Workspace Grid - Split Map Layout */
-        <main className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-6 p-4 md:p-6 lg:p-8 max-w-[1600px] mx-auto w-full overflow-hidden">
+        <main className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-6 p-4 md:p-6 lg:p-8 pt-8 md:pt-8 lg:pt-8 max-w-[1600px] mx-auto w-full overflow-hidden">
           
           {/* TAB PANEL WORKSPACE: Occupies 7 columns on large desktop */}
           <section className="lg:col-span-7 bg-white rounded-2xl border border-gray-100 shadow-sm p-4 md:p-6 flex flex-col min-h-[450px] lg:min-h-0">
