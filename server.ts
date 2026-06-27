@@ -185,7 +185,7 @@ Please classify the image and extract:
         comment: `Duplicate report registered. Citizen verified this issue is still active. Urgency level increased.`
       };
 
-      const updated = db.updateReport(duplicate.id, {
+      const updated = await db.updateReport(duplicate.id, {
         reportCount: updatedReportCount,
         upvotes: updatedUpvotes,
         duplicateIds: [...duplicate.duplicateIds, newDupId],
@@ -258,7 +258,7 @@ ${nameOfReporter} and the WardWatch Civic Ombudsman Agent`;
       comments: []
     };
 
-    db.createReport(newReport);
+    await db.createReport(newReport);
     res.json({
       isDuplicate: false,
       message: 'Report filed, triaged, and dispatched successfully!',
@@ -272,7 +272,7 @@ ${nameOfReporter} and the WardWatch Civic Ombudsman Agent`;
 });
 
 // 5. Update report status manually (for Officers / Admins)
-app.post('/api/reports/:id/status', (req, res) => {
+app.post('/api/reports/:id/status', async (req, res) => {
   const { id } = req.params;
   const { status, updatedBy, comment } = req.body;
 
@@ -294,7 +294,7 @@ app.post('/api/reports/:id/status', (req, res) => {
       comment: comment || `Status updated to ${status}`
     };
 
-    const updated = db.updateReport(id, {
+    const updated = await db.updateReport(id, {
       status: status as ReportStatus,
       history: [...report.history, newHistory]
     });
@@ -306,7 +306,7 @@ app.post('/api/reports/:id/status', (req, res) => {
 });
 
 // 6. Upvote a report to increase urgency
-app.post('/api/reports/:id/upvote', (req, res) => {
+app.post('/api/reports/:id/upvote', async (req, res) => {
   const { id } = req.params;
 
   try {
@@ -315,7 +315,7 @@ app.post('/api/reports/:id/upvote', (req, res) => {
       return res.status(404).json({ error: 'Report not found' });
     }
 
-    const updated = db.updateReport(id, {
+    const updated = await db.updateReport(id, {
       upvotes: report.upvotes + 1
     });
 
@@ -326,7 +326,7 @@ app.post('/api/reports/:id/upvote', (req, res) => {
 });
 
 // 7. Add citizen comment to an issue
-app.post('/api/reports/:id/comments', (req, res) => {
+app.post('/api/reports/:id/comments', async (req, res) => {
   const { id } = req.params;
   const { author, text } = req.body;
 
@@ -347,7 +347,7 @@ app.post('/api/reports/:id/comments', (req, res) => {
       createdAt: new Date().toISOString()
     };
 
-    const updated = db.updateReport(id, {
+    const updated = await db.updateReport(id, {
       comments: [...report.comments, newComment]
     });
 
@@ -456,7 +456,7 @@ Please return a JSON object with:
         comment: `AI Visual Verification APPROVED (Confidence: ${(verificationResult.confidence * 100).toFixed(0)}%). Feedback: ${verificationResult.feedback}`
       };
 
-      const updated = db.updateReport(id, {
+      const updated = await db.updateReport(id, {
         status: 'CLOSED_VERIFIED',
         history: [...report.history, resolvedHistory, closedHistory]
       });
@@ -475,7 +475,7 @@ Please return a JSON object with:
         comment: `AI Visual Verification REJECTED (Confidence: ${(verificationResult.confidence * 100).toFixed(0)}%). Feedback: ${verificationResult.feedback}. Issue remains open.`
       };
 
-      const updated = db.updateReport(id, {
+      const updated = await db.updateReport(id, {
         history: [...report.history, rejectedHistory]
       });
 

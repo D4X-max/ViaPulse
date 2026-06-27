@@ -2,6 +2,8 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Camera, Upload, AlertCircle, Send, CheckCircle, ArrowRight, User, ThumbsUp, MessageSquare, ShieldAlert, Navigation, Award } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Report, Category } from '../types';
+import { prepareAndUploadImage } from '../lib/storage';
+import { auth } from '../lib/firebase';
 
 interface CitizenPortalProps {
   onReportCreated: (report: Report, isDuplicate: boolean, message: string) => void;
@@ -184,11 +186,17 @@ export default function CitizenPortal({
     }, 1200);
 
     try {
+      if (!auth.currentUser) {
+        throw new Error('You must be signed in with Google to submit reports.');
+      }
+      // First, compress and upload the image if it is Base64 (dataURL)
+      const uploadedImageUrl = await prepareAndUploadImage(image);
+
       const response = await fetch('/api/reports', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          image,
+          image: uploadedImageUrl,
           latitude: newReportLocation.latitude,
           longitude: newReportLocation.longitude,
           reporterName: reporterName || 'Anonymous Citizen'

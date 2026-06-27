@@ -4,6 +4,52 @@ import { initializeApp, getApps } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 import { Report, WardStats, Category, ReportStatus, Comment } from '../types';
 
+export enum OperationType {
+  CREATE = 'create',
+  UPDATE = 'update',
+  DELETE = 'delete',
+  LIST = 'list',
+  GET = 'get',
+  WRITE = 'write',
+}
+
+export interface FirestoreErrorInfo {
+  error: string;
+  operationType: OperationType;
+  path: string | null;
+  authInfo: {
+    userId?: string | null;
+    email?: string | null;
+    emailVerified?: boolean | null;
+    isAnonymous?: boolean | null;
+    tenantId?: string | null;
+    providerInfo?: {
+      providerId?: string | null;
+      email?: string | null;
+    }[];
+  };
+}
+
+export function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null): never {
+  const errMessage = error instanceof Error ? error.message : String(error);
+  const errInfo: FirestoreErrorInfo = {
+    error: errMessage,
+    authInfo: {
+      userId: null,
+      email: null,
+      emailVerified: null,
+      isAnonymous: null,
+      tenantId: null,
+      providerInfo: []
+    },
+    operationType,
+    path
+  };
+  const jsonString = JSON.stringify(errInfo);
+  console.error('Firestore Error: ', jsonString);
+  throw new Error(jsonString);
+}
+
 const DB_DIR = path.join(process.cwd(), 'data');
 const DB_FILE = path.join(DB_DIR, 'db.json');
 
@@ -69,7 +115,7 @@ const SEED_REPORTS: Report[] = [
   }
 ];
 
-// 3-second execution guard wrapper to stop server fetch stalling
+// 10-second execution guard wrapper to stop server fetch stalling
 async function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
   let timeoutId: NodeJS.Timeout | undefined;
   const timeoutPromise = new Promise<never>((_, reject) => {
@@ -80,6 +126,19 @@ async function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T
   return Promise.race([promise, timeoutPromise]).finally(() => {
     if (timeoutId) clearTimeout(timeoutId);
   });
+}
+
+/**
+ * Wraps a Firestore Promise to intercept and log raw Firestore errors (like PERMISSION_DENIED,
+ * DOCUMENT_TOO_LARGE, etc.) immediately before any timeout racer can reject.
+ */
+async function wrapFirestore<T>(promise: Promise<T>, operationType: OperationType, path: string | null): Promise<T> {
+  try {
+    return await promise;
+  } catch (err: any) {
+    console.error(`[RAW FIRESTORE EXCEPTION] Operation: ${operationType}, Path: ${path}`, err);
+    throw err;
+  }
 }
 
 class LocalDB {
@@ -105,7 +164,10 @@ class LocalDB {
     if (isFirebaseConnected && firestoreDb) {
       try {
         console.log('Fetching remote records from active Cloud collection...');
-        const snapshot = await withTimeout(firestoreDb.collection('reports').get(), 3000) as any;
+        const snapshot = await withTimeout(
+          wrapFirestore(firestoreDb.collection('reports').get(), OperationType.LIST, 'reports'),
+          10000
+        ) as any;
         
         if (!snapshot.empty) {
           const firestoreReports: Report[] = [];
@@ -119,7 +181,10 @@ class LocalDB {
           for (const rep of this.reports) {
             batch.set(firestoreDb.collection('reports').doc(rep.id), rep);
           }
-          await withTimeout(batch.commit(), 3000);
+          await withTimeout(
+            wrapFirestore(batch.commit(), OperationType.WRITE, 'batch_commit'),
+            10000
+          );
         }
       } catch (error) {
         console.warn('Firestore sync routed to local fallback cache core:', error);
@@ -139,17 +204,27 @@ class LocalDB {
   public getReports(): Report[] { return this.reports; }
   public getReportById(id: string): Report | undefined { return this.reports.find(r => r.id === id); }
 
-  public createReport(report: Report) {
+  public async createReport(report: Report): Promise<void> {
     this.reports.unshift(report);
     this.saveLocal();
     if (isFirebaseConnected && firestoreDb) {
-      withTimeout(firestoreDb.collection('reports').doc(report.id).set(report), 3000).catch(err => {
+      try {
+        await withTimeout(
+          wrapFirestore(
+            firestoreDb.collection('reports').doc(report.id).set(report),
+            OperationType.WRITE,
+            `reports/${report.id}`
+          ),
+          10000
+        );
+      } catch (err: any) {
         console.error(`Cloud write failure for report ${report.id}:`, err);
-      });
+        handleFirestoreError(err, OperationType.WRITE, `reports/${report.id}`);
+      }
     }
   }
 
-  public updateReport(id: string, updates: Partial<Report>): Report | undefined {
+  public async updateReport(id: string, updates: Partial<Report>): Promise<Report | undefined> {
     const reportIndex = this.reports.findIndex(r => r.id === id);
     if (reportIndex === -1) return undefined;
 
@@ -158,14 +233,24 @@ class LocalDB {
     this.saveLocal();
 
     if (isFirebaseConnected && firestoreDb) {
-      withTimeout(firestoreDb.collection('reports').doc(id).set(updatedReport), 3000).catch(err => {
+      try {
+        await withTimeout(
+          wrapFirestore(
+            firestoreDb.collection('reports').doc(id).set(updatedReport),
+            OperationType.WRITE,
+            `reports/${id}`
+          ),
+          10000
+        );
+      } catch (err: any) {
         console.error(`Cloud edit sync failed for report ${id}:`, err);
-      });
+        handleFirestoreError(err, OperationType.WRITE, `reports/${id}`);
+      }
     }
     return updatedReport;
   }
 
-  public deleteReport(id: string): boolean {
+  public async deleteReport(id: string): Promise<boolean> {
     const reportIndex = this.reports.findIndex(r => r.id === id);
     if (reportIndex === -1) return false;
 
@@ -173,9 +258,19 @@ class LocalDB {
     this.saveLocal();
 
     if (isFirebaseConnected && firestoreDb) {
-      withTimeout(firestoreDb.collection('reports').doc(id).delete(), 3000).catch(err => {
+      try {
+        await withTimeout(
+          wrapFirestore(
+            firestoreDb.collection('reports').doc(id).delete(),
+            OperationType.DELETE,
+            `reports/${id}`
+          ),
+          10000
+        );
+      } catch (err: any) {
         console.error(`Cloud removal sync error for report ${id}:`, err);
-      });
+        handleFirestoreError(err, OperationType.DELETE, `reports/${id}`);
+      }
     }
     return true;
   }

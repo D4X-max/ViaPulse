@@ -9,6 +9,8 @@ import CivicGamification from './components/CivicGamification';
 import TopographicBackground from './components/TopographicBackground';
 import { Report, DashboardStats } from './types';
 import OnboardingFlow from './components/onboarding/OnboardingFlow';
+import { prepareAndUploadImage } from './lib/storage';
+import { auth } from './lib/firebase';
 
 export default function App() {
   const [onboardingCompleted, setOnboardingCompleted] = useState<boolean>(() => {
@@ -131,11 +133,18 @@ export default function App() {
 
   // Visual Verification submission inside Ombudsman view
   const handleVerifyResolution = async (id: string, resolutionImage: string, resolverName: string, comment: string) => {
+    if (!auth.currentUser) {
+      showToast('error', 'You must be signed in with Google to verify resolutions.');
+      return;
+    }
     try {
+      // Compress and upload verification image to Firebase Storage if it's Base64
+      const uploadedResolutionUrl = await prepareAndUploadImage(resolutionImage);
+
       const res = await fetch(`/api/reports/${id}/verify-resolution`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ resolutionImage, resolverName, comment })
+        body: JSON.stringify({ resolutionImage: uploadedResolutionUrl, resolverName, comment })
       });
       
       if (!res.ok) {
