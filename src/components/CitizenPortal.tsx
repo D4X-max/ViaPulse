@@ -2,8 +2,6 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Camera, Upload, AlertCircle, Send, CheckCircle, ArrowRight, User, ThumbsUp, MessageSquare, ShieldAlert, Navigation, Award } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Report, Category } from '../types';
-import { prepareAndUploadImage } from '../lib/storage';
-import { auth } from '../lib/firebase';
 
 interface CitizenPortalProps {
   onReportCreated: (report: Report, isDuplicate: boolean, message: string) => void;
@@ -14,6 +12,7 @@ interface CitizenPortalProps {
   setNewReportLocation: (loc: { latitude: number; longitude: number } | null) => void;
   onUpvote: (id: string) => void;
   onAddComment: (id: string, author: string, text: string) => void;
+  user?: any;
 }
 
 export default function CitizenPortal({
@@ -24,7 +23,8 @@ export default function CitizenPortal({
   newReportLocation,
   setNewReportLocation,
   onUpvote,
-  onAddComment
+  onAddComment,
+  user
 }: CitizenPortalProps) {
   // Submission Form State
   const [reporterName, setReporterName] = useState('');
@@ -47,6 +47,23 @@ export default function CitizenPortal({
   // Comments state
   const [commentAuthor, setCommentAuthor] = useState('');
   const [commentText, setCommentText] = useState('');
+
+  // Sync form inputs with Firebase authenticated user
+  useEffect(() => {
+    if (user) {
+      if (user.displayName) {
+        setReporterName(user.displayName);
+        setCommentAuthor(user.displayName);
+      } else if (user.email) {
+        const username = user.email.split('@')[0];
+        setReporterName(username);
+        setCommentAuthor(username);
+      }
+    } else {
+      setReporterName('');
+      setCommentAuthor('');
+    }
+  }, [user]);
 
   // Refs
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -80,6 +97,7 @@ export default function CitizenPortal({
 
   // Camera handling
   const startCamera = async () => {
+    setSubmitError(null);
     try {
       setIsCameraActive(true);
       const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
@@ -103,6 +121,7 @@ export default function CitizenPortal({
   };
 
   const capturePhoto = () => {
+    setSubmitError(null);
     if (!videoRef.current) return;
     const canvas = document.createElement('canvas');
     canvas.width = videoRef.current.videoWidth || 640;
@@ -122,6 +141,7 @@ export default function CitizenPortal({
   };
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setSubmitError(null);
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -186,17 +206,11 @@ export default function CitizenPortal({
     }, 1200);
 
     try {
-      if (!auth.currentUser) {
-        throw new Error('You must be signed in with Google to submit reports.');
-      }
-      // First, compress and upload the image if it is Base64 (dataURL)
-      const uploadedImageUrl = await prepareAndUploadImage(image);
-
       const response = await fetch('/api/reports', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          image: uploadedImageUrl,
+          image,
           latitude: newReportLocation.latitude,
           longitude: newReportLocation.longitude,
           reporterName: reporterName || 'Anonymous Citizen'
@@ -229,6 +243,9 @@ export default function CitizenPortal({
       console.error(err);
       setSubmitError(err.message || 'Verification Error: Hazard context mismatch');
       setIsSubmitting(false);
+      setImage(null);
+      setNewReportLocation(null);
+      setFormStep('image');
     }
   };
 
@@ -335,9 +352,21 @@ export default function CitizenPortal({
             {/* Form Box */}
             <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 md:p-5 flex flex-col gap-4">
               <h3 className="font-display font-medium text-gray-800 text-sm flex items-center gap-2">
-                <span className="flex items-center justify-center w-5 h-5 rounded-full bg-indigo-50 text-indigo-600 font-bold text-xs">1</span>
-                Report an Active Hazard
+                <span className="flex items-center justify-center w-5 h-5 rounded-full bg-indigo-50 text-indigo-600 font-bold text-xs">
+                  {formStep === 'image' ? '1' : formStep === 'location' ? '2' : '3'}
+                </span>
+                {formStep === 'image' ? 'Report an Active Hazard' : formStep === 'location' ? 'Pinpoint Hazard Location' : 'Submit Reporter Details'}
               </h3>
+
+              {submitError && (
+                <div className="bg-rose-50 border border-rose-100 p-3 rounded-xl flex items-start gap-2.5 text-xs text-rose-700 font-sans">
+                  <AlertCircle className="w-4.5 h-4.5 text-rose-500 shrink-0 mt-0.5" />
+                  <div>
+                    <span className="font-bold">Submission Rejected</span>
+                    <p className="mt-0.5 text-rose-600/90 leading-normal">{submitError}</p>
+                  </div>
+                </div>
+              )}
 
               {/* Step 1: Capture Hazard Image */}
               {formStep === 'image' && (
@@ -447,15 +476,7 @@ export default function CitizenPortal({
                     </div>
                   </div>
 
-                  {submitError && (
-                    <div className="bg-rose-50 border border-rose-100 p-3 rounded-xl flex items-start gap-2.5 text-xs text-rose-700 font-sans">
-                      <AlertCircle className="w-4 h-4 text-rose-500 shrink-0 mt-0.5" />
-                      <div>
-                        <span className="font-bold">Submission Rejected</span>
-                        <p className="mt-0.5 text-rose-600/90 leading-normal">{submitError}</p>
-                      </div>
-                    </div>
-                  )}
+                  {/* submitError removed from Step 3 as it is now at the top of the Form Box */}
 
                   <div className="flex gap-2">
                     <button

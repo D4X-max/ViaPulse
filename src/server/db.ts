@@ -63,14 +63,12 @@ try {
     const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
     
     // Prevent multiple core app initialization crashes during development reloads
-    if (getApps().length === 0) {
-      initializeApp({
-        projectId: config.projectId
-      });
-    }
+    const app = getApps().length === 0 ? initializeApp({
+      projectId: config.projectId
+    }) : getApps()[0];
     
     // Target the clean root default database instance
-    firestoreDb = getFirestore();
+    firestoreDb = getFirestore(app);
     firestoreDb.settings({ ignoreUndefinedProperties: true });
     
     isFirebaseConnected = true;
@@ -115,7 +113,7 @@ const SEED_REPORTS: Report[] = [
   }
 ];
 
-// 10-second execution guard wrapper to stop server fetch stalling
+// 3-second execution guard wrapper to stop server fetch stalling
 async function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
   let timeoutId: NodeJS.Timeout | undefined;
   const timeoutPromise = new Promise<never>((_, reject) => {
@@ -126,19 +124,6 @@ async function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T
   return Promise.race([promise, timeoutPromise]).finally(() => {
     if (timeoutId) clearTimeout(timeoutId);
   });
-}
-
-/**
- * Wraps a Firestore Promise to intercept and log raw Firestore errors (like PERMISSION_DENIED,
- * DOCUMENT_TOO_LARGE, etc.) immediately before any timeout racer can reject.
- */
-async function wrapFirestore<T>(promise: Promise<T>, operationType: OperationType, path: string | null): Promise<T> {
-  try {
-    return await promise;
-  } catch (err: any) {
-    console.error(`[RAW FIRESTORE EXCEPTION] Operation: ${operationType}, Path: ${path}`, err);
-    throw err;
-  }
 }
 
 class LocalDB {
@@ -164,10 +149,7 @@ class LocalDB {
     if (isFirebaseConnected && firestoreDb) {
       try {
         console.log('Fetching remote records from active Cloud collection...');
-        const snapshot = await withTimeout(
-          wrapFirestore(firestoreDb.collection('reports').get(), OperationType.LIST, 'reports'),
-          10000
-        ) as any;
+        const snapshot = await withTimeout(firestoreDb.collection('reports').get(), 3000) as any;
         
         if (!snapshot.empty) {
           const firestoreReports: Report[] = [];
@@ -181,10 +163,7 @@ class LocalDB {
           for (const rep of this.reports) {
             batch.set(firestoreDb.collection('reports').doc(rep.id), rep);
           }
-          await withTimeout(
-            wrapFirestore(batch.commit(), OperationType.WRITE, 'batch_commit'),
-            10000
-          );
+          await withTimeout(batch.commit(), 3000);
         }
       } catch (error) {
         console.warn('Firestore sync routed to local fallback cache core:', error);
@@ -209,17 +188,12 @@ class LocalDB {
     this.saveLocal();
     if (isFirebaseConnected && firestoreDb) {
       try {
-        await withTimeout(
-          wrapFirestore(
-            firestoreDb.collection('reports').doc(report.id).set(report),
-            OperationType.WRITE,
-            `reports/${report.id}`
-          ),
-          10000
-        );
+        await withTimeout(firestoreDb.collection('reports').doc(report.id).set(report), 3000);
       } catch (err: any) {
         console.error(`Cloud write failure for report ${report.id}:`, err);
-        handleFirestoreError(err, OperationType.WRITE, `reports/${report.id}`);
+        if (err.message?.includes('PERMISSION_DENIED') || err.code === 7 || String(err).includes('PERMISSION_DENIED')) {
+          handleFirestoreError(err, OperationType.WRITE, `reports/${report.id}`);
+        }
       }
     }
   }
@@ -234,17 +208,12 @@ class LocalDB {
 
     if (isFirebaseConnected && firestoreDb) {
       try {
-        await withTimeout(
-          wrapFirestore(
-            firestoreDb.collection('reports').doc(id).set(updatedReport),
-            OperationType.WRITE,
-            `reports/${id}`
-          ),
-          10000
-        );
+        await withTimeout(firestoreDb.collection('reports').doc(id).set(updatedReport), 3000);
       } catch (err: any) {
         console.error(`Cloud edit sync failed for report ${id}:`, err);
-        handleFirestoreError(err, OperationType.WRITE, `reports/${id}`);
+        if (err.message?.includes('PERMISSION_DENIED') || err.code === 7 || String(err).includes('PERMISSION_DENIED')) {
+          handleFirestoreError(err, OperationType.WRITE, `reports/${id}`);
+        }
       }
     }
     return updatedReport;
@@ -259,17 +228,12 @@ class LocalDB {
 
     if (isFirebaseConnected && firestoreDb) {
       try {
-        await withTimeout(
-          wrapFirestore(
-            firestoreDb.collection('reports').doc(id).delete(),
-            OperationType.DELETE,
-            `reports/${id}`
-          ),
-          10000
-        );
+        await withTimeout(firestoreDb.collection('reports').doc(id).delete(), 3000);
       } catch (err: any) {
         console.error(`Cloud removal sync error for report ${id}:`, err);
-        handleFirestoreError(err, OperationType.DELETE, `reports/${id}`);
+        if (err.message?.includes('PERMISSION_DENIED') || err.code === 7 || String(err).includes('PERMISSION_DENIED')) {
+          handleFirestoreError(err, OperationType.DELETE, `reports/${id}`);
+        }
       }
     }
     return true;

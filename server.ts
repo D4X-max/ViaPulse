@@ -115,11 +115,21 @@ app.post('/api/reports', async (req, res) => {
       };
 
       const prompt = `Analyze this image to detect public infrastructure issues for a civic utility app called WardWatch.
+
+CRITICAL SAFETY & REJECTION RULES:
+1. REJECT SELFIES/PORTRAITS: If the image is a selfie, portrait, contains people as the primary subject, or shows faces clearly, you MUST set isInfrastructureHazard to false.
+2. REJECT UNRELATED IMAGES: If the image shows indoor residential settings, bedrooms, living rooms, pets, domestic animals, food, documents, screens, abstract art, or random objects not on public streets or utility pathways, you MUST set isInfrastructureHazard to false.
+3. ACCEPT ONLY REAL CIVIC INFRASTRUCTURE ISSUES: The image must clearly, directly, and prominently show a real municipal/civic infrastructure hazard such as:
+   - potholes, broken pavement, or sidewalk damage (category: 'pothole')
+   - illegal trash piles, litter dumps, or garbage overflows on streets/public areas (category: 'garbage')
+   - public water leaks, main bursts, or open sewage/puddling (category: 'water')
+   - dark or broken street lights, exposed utility wires, or damaged light poles (category: 'lighting')
+
 Please classify the image and extract:
-1. isInfrastructureHazard: boolean (True if this is a real municipal/civic issue like potholes, illegal trash dumping, water leaks, or broken lights).
+1. isInfrastructureHazard: boolean (Strictly false if it violates any of the rejection rules above; true only if it is a real municipal/civic public infrastructure issue).
 2. category: string (Must be exactly one of: 'pothole', 'garbage', 'water', 'lighting').
 3. severity: string (Must be exactly one of: 'low', 'medium', 'high').
-4. description: string (A professional, concise 2-3 sentence description detailing the issue and hazard risks).
+4. description: string (A professional, concise 2-3 sentence description detailing the issue and hazard risks, or explaining the rejection reason).
 5. municipalOrdinanceCitations: string (An official-sounding mock municipal code section relevant to this hazard, e.g. "Municipal Code Section 12.4 - Public Sidewalk Maintenance" or "Utility Water Protection Act Section 8").`;
 
       try {
@@ -401,11 +411,14 @@ You are given two images for comparison:
 - Image 1 is the 'before' image showing an active civic infrastructure hazard (originally classified as a '${report.category}').
 - Image 2 is the 'after' image showing the reported location after a claimed maintenance repair.
 
-Evaluate whether the infrastructure issue/hazard shown in the before image has been successfully resolved, cleaned, patched, or cleared in the after image.
+CRITICAL SAFETY & REJECTION RULES:
+1. REJECT SELFIES/PORTRAITS/UNRELATED PHOTOS: If the 'after' image (Image 2) is a selfie, a portrait of a person, shows people as the primary subject, or is a random unrelated picture (indoor room, pet, screenshot, food, etc.), you MUST set isResolved to false.
+2. VERIFY ACTUAL RESOLUTION: Evaluate whether the specific infrastructure issue/hazard shown in the before image (such as the pothole, trash, leak, or broken light) has been successfully resolved, cleaned, patched, or cleared in the after image.
+
 Please return a JSON object with:
-1. isResolved: boolean (True if the repair was fully completed and the hazard is no longer present. False if the hazard is still there or the photo is irrelevant/blurry/scam).
+1. isResolved: boolean (True ONLY if the repair was fully completed, the hazard is no longer present, and the after image is NOT a selfie or unrelated photo. False otherwise).
 2. confidence: number (from 0.0 to 1.0 representing your confidence).
-3. feedback: string (Describe what you see in the after image and justify your approval or rejection of the repair in 2-3 professional sentences).`;
+3. feedback: string (Describe what you see in the after image and justify your approval or rejection of the repair in 2-3 professional sentences. Specifically note if the photo was rejected for being a selfie or unrelated).`;
 
       try {
         const response = await ai.models.generateContent({

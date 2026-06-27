@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { ShieldCheck, Eye, Award, CheckCircle, Navigation, MapPin, RefreshCw, AlertCircle, BarChart3 } from 'lucide-react';
+import { ShieldCheck, Eye, Award, CheckCircle, Navigation, MapPin, RefreshCw, AlertCircle, BarChart3, LogIn, LogOut } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import ReportMap from './components/ReportMap';
 import CitizenPortal from './components/CitizenPortal';
@@ -9,8 +9,8 @@ import CivicGamification from './components/CivicGamification';
 import TopographicBackground from './components/TopographicBackground';
 import { Report, DashboardStats } from './types';
 import OnboardingFlow from './components/onboarding/OnboardingFlow';
-import { prepareAndUploadImage } from './lib/storage';
 import { auth } from './lib/firebase';
+import { signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged, User } from 'firebase/auth';
 
 export default function App() {
   const [onboardingCompleted, setOnboardingCompleted] = useState<boolean>(() => {
@@ -34,6 +34,39 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [notification, setNotification] = useState<{ type: 'success' | 'info' | 'error'; text: string } | null>(null);
+
+  // Authentication State
+  const [user, setUser] = useState<User | null>(null);
+  const [authLoading, setAuthLoading] = useState(true);
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      setUser(currentUser);
+      setAuthLoading(false);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  const handleSignIn = async () => {
+    const provider = new GoogleAuthProvider();
+    try {
+      await signInWithPopup(auth, provider);
+      showToast('success', 'Successfully authenticated via Google services!');
+    } catch (err: any) {
+      console.error('Authentication failure:', err);
+      showToast('error', `Authentication failed: ${err.message || err}`);
+    }
+  };
+
+  const handleSignOut = async () => {
+    try {
+      await signOut(auth);
+      showToast('success', 'Logged out of civic node.');
+    } catch (err: any) {
+      console.error('Sign-out failure:', err);
+      showToast('error', 'Sign-out failed.');
+    }
+  };
 
   // Load Initial Data
   const fetchData = async (isSilent = false) => {
@@ -133,18 +166,11 @@ export default function App() {
 
   // Visual Verification submission inside Ombudsman view
   const handleVerifyResolution = async (id: string, resolutionImage: string, resolverName: string, comment: string) => {
-    if (!auth.currentUser) {
-      showToast('error', 'You must be signed in with Google to verify resolutions.');
-      return;
-    }
     try {
-      // Compress and upload verification image to Firebase Storage if it's Base64
-      const uploadedResolutionUrl = await prepareAndUploadImage(resolutionImage);
-
       const res = await fetch(`/api/reports/${id}/verify-resolution`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ resolutionImage: uploadedResolutionUrl, resolverName, comment })
+        body: JSON.stringify({ resolutionImage, resolverName, comment })
       });
       
       if (!res.ok) {
@@ -261,15 +287,53 @@ export default function App() {
           </button>
         </div>
 
-        {/* Sync Controls / Indicators */}
-        <button
-          onClick={() => fetchData(true)}
-          disabled={refreshing}
-          className="p-2 rounded-lg bg-slate-50 hover:bg-slate-100 text-gray-500 disabled:opacity-50 transition-all border border-gray-100"
-          title="Refresh Data Logs"
-        >
-          <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin text-indigo-600' : ''}`} />
-        </button>
+        {/* Sync & User Auth Controls */}
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => fetchData(true)}
+            disabled={refreshing}
+            className="p-2 rounded-lg bg-slate-50 hover:bg-slate-100 text-gray-500 disabled:opacity-50 transition-all border border-gray-100"
+            title="Refresh Data Logs"
+          >
+            <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin text-indigo-600' : ''}`} />
+          </button>
+
+          {authLoading ? (
+            <div className="w-8 h-8 rounded-full border-2 border-indigo-600 border-t-transparent animate-spin"></div>
+          ) : user ? (
+            <div className="flex items-center gap-2 border-l border-gray-100 pl-3">
+              <img
+                src={user.photoURL || `https://api.dicebear.com/7.x/adventurer/svg?seed=${user.email}`}
+                alt={user.displayName || 'User'}
+                className="w-9 h-9 rounded-full border border-indigo-100"
+                referrerPolicy="no-referrer"
+              />
+              <div className="hidden md:flex flex-col text-left">
+                <span className="text-xs font-semibold text-gray-800 leading-tight">
+                  {user.displayName || 'Sentinel'}
+                </span>
+                <span className="text-[10px] text-gray-400 leading-tight">
+                  {user.email}
+                </span>
+              </div>
+              <button
+                onClick={handleSignOut}
+                className="p-2 rounded-lg text-gray-400 hover:text-rose-600 hover:bg-rose-50 transition-colors"
+                title="Sign Out"
+              >
+                <LogOut className="w-4.5 h-4.5" />
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={handleSignIn}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 transition-all shadow-sm"
+            >
+              <LogIn className="w-3.5 h-3.5" />
+              <span>Sign In</span>
+            </button>
+          )}
+        </div>
       </header>
 
       {/* Toast Notification Container */}
@@ -335,6 +399,7 @@ export default function App() {
                     onReportCreated={handleReportCreated}
                     onUpvote={handleUpvote}
                     onAddComment={handleAddComment}
+                    user={user}
                   />
                 </motion.div>
               )}

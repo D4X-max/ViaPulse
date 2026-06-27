@@ -1,8 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Shield, Check, MapPin, ShieldCheck, Smartphone, Search, Lock, Compass, Sparkles, ArrowRight, CheckCircle, Navigation } from 'lucide-react';
-import { auth } from '../../lib/firebase';
-import { signInWithRedirect, getRedirectResult, GoogleAuthProvider, signInAnonymously } from 'firebase/auth';
 
 interface OnboardingFlowProps {
   onComplete: () => void;
@@ -62,92 +60,16 @@ export default function OnboardingFlow({ onComplete, userEmail = 'dhrvsrijit@gma
     }
   }, [step]);
 
-  // 3. Handle Firebase Authentication Redirect Result on mount
-  useEffect(() => {
-    let active = true;
-    const checkRedirectResult = async () => {
-      try {
-        setSigningIn(true);
-        const result = await getRedirectResult(auth);
-        if (!active) return;
-        if (result && result.user) {
-          console.log('Firebase Auth redirect success:', result.user);
-          setSignInSuccess(true);
-          setStep('location');
-          setTimeout(() => {
-            if (active) {
-              setSigningIn(false);
-            }
-          }, 1200);
-        } else if (auth.currentUser) {
-          // If the user is already authenticated, set sign in success and stay on current step or advance if at signin
-          setSignInSuccess(true);
-          setSigningIn(false);
-        } else {
-          setSigningIn(false);
-        }
-      } catch (err: any) {
-        if (!active) return;
-        console.error('Error getting redirect result:', err);
-        setSigningIn(false);
-        alert(err.message || 'Failed to recover sign-in session after redirect.');
-      }
-    };
-
-    checkRedirectResult();
-    return () => {
-      active = false;
-    };
-  }, []);
-
-  const handleGoogleSignIn = async () => {
-    if (auth.currentUser) {
-      setSignInSuccess(true);
-      setStep('location');
-      return;
-    }
+  const handleGoogleSignIn = () => {
     setSigningIn(true);
-    try {
-      const provider = new GoogleAuthProvider();
-      // Use the prompt custom parameter to force account selection
-      provider.setCustomParameters({
-        prompt: 'select_account'
-      });
-      await signInWithRedirect(auth, provider);
-    } catch (err: any) {
-      console.error('Firebase Auth sign in failed:', err);
-      setSigningIn(false);
-      alert(err.message || 'Firebase Authentication could not be initiated.');
-    }
-  };
-
-  const handleDemoSignIn = async () => {
-    setSigningIn(true);
-    try {
-      await signInAnonymously(auth);
+    // Simulate real Google Sign In flow
+    setTimeout(() => {
       setSignInSuccess(true);
       setTimeout(() => {
         setSigningIn(false);
         setStep('location');
       }, 1200);
-    } catch (err: any) {
-      console.error('Firebase Auth anonymous sign in failed:', err);
-      setSigningIn(false);
-      const isOperationNotAllowed = err.code === 'auth/operation-not-allowed';
-      if (isOperationNotAllowed) {
-        alert(
-          "Anonymous sign-in is not enabled in your Firebase Console yet.\n\n" +
-          "To enable it for instant testing:\n" +
-          "1. Go to Firebase Console > Authentication > Sign-in method.\n" +
-          "2. Enable the 'Anonymous' sign-in provider.\n\n" +
-          "Alternatively, we will bypass the screen and let you view the application in Offline Mode!"
-        );
-      } else {
-        alert(err.message || 'Failed to authenticate with Sandbox Demo mode.');
-      }
-      setSignInSuccess(true);
-      setStep('location');
-    }
+    }, 1800);
   };
 
   const handleRequestLocation = () => {
@@ -564,39 +486,13 @@ export default function OnboardingFlow({ onComplete, userEmail = 'dhrvsrijit@gma
                 </button>
 
                 <button
-                  onClick={handleGoogleSignIn}
                   disabled={signingIn}
-                  className="p-3.5 rounded-xl border border-gray-150 border-dashed hover:bg-gray-50/50 text-left text-xs font-semibold text-gray-500 transition-all flex items-center gap-3 w-full animate-pulse"
+                  className="p-3.5 rounded-xl border border-gray-150 border-dashed hover:bg-gray-50/50 text-left text-xs font-semibold text-gray-500 transition-all flex items-center gap-3"
                 >
                   <span className="w-8 h-8 rounded-full border border-gray-200 border-dashed flex items-center justify-center text-lg text-gray-400">
                     +
                   </span>
                   Use another account
-                </button>
-
-                <div className="relative flex py-2 items-center">
-                  <div className="flex-grow border-t border-gray-100"></div>
-                  <span className="flex-shrink mx-3 text-[9px] text-gray-400 font-bold uppercase tracking-wider font-mono">Bypass for testing</span>
-                  <div className="flex-grow border-t border-gray-100"></div>
-                </div>
-
-                <button
-                  onClick={handleDemoSignIn}
-                  disabled={signingIn}
-                  className="p-4 rounded-2xl border border-dashed border-emerald-200 bg-emerald-50/10 hover:bg-emerald-50/30 text-left transition-all flex items-center justify-between gap-3 group"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-emerald-600 flex items-center justify-center font-display font-black text-white text-sm shadow-sm">
-                      ST
-                    </div>
-                    <div className="flex flex-col">
-                      <span className="text-xs font-bold text-gray-800 group-hover:text-emerald-700 transition-colors">Developer Sandbox (Bypass Auth)</span>
-                      <span className="text-[10px] text-gray-400">Bypasses Google redirect and authorized domain limits</span>
-                    </div>
-                  </div>
-                  <span className="text-[10px] text-emerald-600 bg-emerald-50 border border-emerald-100 px-2 py-0.5 rounded font-bold">
-                    Recommended
-                  </span>
                 </button>
               </div>
 
