@@ -39,6 +39,7 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [notification, setNotification] = useState<{ type: 'success' | 'info' | 'error'; text: string } | null>(null);
+  const [leaderboard, setLeaderboard] = useState<any[]>([]);
 
   // Authentication State
   const [user, setUser] = useState<any | null>(null);
@@ -72,13 +73,29 @@ export default function App() {
   }, [userRole]);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       setUser(currentUser);
       if (currentUser) {
         const isGov = currentUser.email?.endsWith('.gov') || 
                       currentUser.email === 'ombudsman@viapulse.gov' || 
                       currentUser.email === 'admin@city.gov';
         setUserRole(isGov ? 'admin' : 'citizen');
+
+        try {
+          await fetch('/api/profiles', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              uid: currentUser.uid,
+              email: currentUser.email,
+              displayName: currentUser.displayName || currentUser.email?.split('@')[0] || 'Citizen',
+              photoURL: currentUser.photoURL || `https://api.dicebear.com/7.x/adventurer/svg?seed=${currentUser.email}`
+            })
+          });
+          fetchData(true);
+        } catch (err) {
+          console.error('Error registering user profile:', err);
+        }
       } else {
         setUserRole(null);
       }
@@ -122,6 +139,10 @@ export default function App() {
       const statsRes = await fetch('/api/stats');
       const statsData = await statsRes.json();
       setStats(statsData);
+
+      const leaderboardRes = await fetch('/api/leaderboard');
+      const leaderboardData = await leaderboardRes.json();
+      setLeaderboard(leaderboardData);
     } catch (err) {
       console.error('Error fetching dashboard data:', err);
       showToast('error', 'Network sync failed. Operating offline/simulated.');
@@ -258,9 +279,24 @@ export default function App() {
         </div>
 
         <AuthGate 
-          onAuthSuccess={(authenticatedUser, role) => {
+          onAuthSuccess={async (authenticatedUser, role) => {
             setUser(authenticatedUser);
             setUserRole(role);
+            try {
+              await fetch('/api/profiles', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  uid: authenticatedUser.uid,
+                  email: authenticatedUser.email,
+                  displayName: authenticatedUser.displayName || authenticatedUser.email?.split('@')[0] || 'Citizen',
+                  photoURL: authenticatedUser.photoURL || `https://api.dicebear.com/7.x/adventurer/svg?seed=${authenticatedUser.email}`
+                })
+              });
+              fetchData(true);
+            } catch (err) {
+              console.error('Error registering profile onAuthSuccess:', err);
+            }
           }} 
           showToast={showToast}
         />
@@ -622,7 +658,7 @@ export default function App() {
                   transition={{ duration: 0.2 }}
                   className="h-full overflow-y-auto pr-1"
                 >
-                  <CivicGamification user={user} reports={reports} />
+                  <CivicGamification user={user} reports={reports} leaderboard={leaderboard} />
                 </motion.div>
               )}
 

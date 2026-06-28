@@ -2,7 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import { initializeApp, getApps } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
-import { Report, WardStats, Category, ReportStatus, Comment } from '../types';
+import { Report, WardStats, Category, ReportStatus, Comment, UserProfile } from '../types';
 
 export enum OperationType {
   CREATE = 'create',
@@ -128,6 +128,7 @@ async function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T
 
 class LocalDB {
   private reports: Report[] = [];
+  private profiles: UserProfile[] = [];
 
   constructor() {
     this.init().catch(err => console.error('DB Async lifecycle boot failure:', err));
@@ -144,6 +145,15 @@ class LocalDB {
       }
     } catch (e) {
       this.reports = [...SEED_REPORTS];
+    }
+
+    try {
+      const PROFILES_FILE = path.join(DB_DIR, 'profiles.json');
+      if (fs.existsSync(PROFILES_FILE)) {
+        this.profiles = JSON.parse(fs.readFileSync(PROFILES_FILE, 'utf-8'));
+      }
+    } catch (e) {
+      this.profiles = [];
     }
 
     if (isFirebaseConnected && firestoreDb) {
@@ -168,6 +178,19 @@ class LocalDB {
       } catch (error) {
         console.warn('Firestore sync routed to local fallback cache core:', error);
       }
+
+      try {
+        console.log('Fetching remote profiles from active Cloud collection...');
+        const profileSnapshot = await withTimeout(firestoreDb.collection('profiles').get(), 3000) as any;
+        if (!profileSnapshot.empty) {
+          const firestoreProfiles: UserProfile[] = [];
+          profileSnapshot.forEach((docSnap: any) => firestoreProfiles.push(docSnap.data() as UserProfile));
+          this.profiles = firestoreProfiles;
+          this.saveProfilesLocal();
+        }
+      } catch (error) {
+        console.warn('Firestore profiles sync failed:', error);
+      }
     }
   }
 
@@ -178,6 +201,101 @@ class LocalDB {
     } catch (e) {
       console.error('Local persistence save error:', e);
     }
+  }
+
+  private saveProfilesLocal() {
+    try {
+      if (!fs.existsSync(DB_DIR)) fs.mkdirSync(DB_DIR, { recursive: true });
+      const PROFILES_FILE = path.join(DB_DIR, 'profiles.json');
+      fs.writeFileSync(PROFILES_FILE, JSON.stringify(this.profiles, null, 2), 'utf-8');
+    } catch (e) {
+      console.error('Local profiles persistence save error:', e);
+    }
+  }
+
+  public async saveProfile(profile: UserProfile): Promise<UserProfile> {
+    const existingIndex = this.profiles.findIndex(p => p.email === profile.email);
+    const updatedProfile = { 
+      ...(existingIndex >= 0 ? this.profiles[existingIndex] : {}),
+      ...profile,
+      createdAt: existingIndex >= 0 ? (this.profiles[existingIndex].createdAt || new Date().toISOString()) : new Date().toISOString()
+    };
+
+    if (existingIndex >= 0) {
+      this.profiles[existingIndex] = updatedProfile;
+    } else {
+      this.profiles.push(updatedProfile);
+    }
+    this.saveProfilesLocal();
+
+    if (isFirebaseConnected && firestoreDb) {
+      try {
+        await withTimeout(firestoreDb.collection('profiles').doc(profile.email).set(updatedProfile), 3000);
+      } catch (err: any) {
+        console.error(`Cloud write failure for profile ${profile.email}:`, err);
+      }
+    }
+    return updatedProfile;
+  }
+
+  public getProfiles(): UserProfile[] {
+    return this.profiles;
+  }
+
+  public compileLeaderboard() {
+    const usersMap: Record<string, { name: string; email: string; reportCount: number; upvoteCount: number }> = {};
+
+    this.profiles.forEach(p => {
+      usersMap[p.email] = {
+        name: p.displayName,
+        email: p.email,
+        reportCount: 0,
+        upvoteCount: 0
+      };
+    });
+
+    this.reports.forEach(r => {
+      const email = r.reporterEmail || '';
+      if (!email) return;
+
+      if (!usersMap[email]) {
+        usersMap[email] = {
+          name: r.reporterName || email.split('@')[0],
+          email,
+          reportCount: 0,
+          upvoteCount: 0
+        };
+      }
+
+      usersMap[email].reportCount += 1;
+      usersMap[email].upvoteCount += (r.upvotes || 0);
+    });
+
+    const standings = Object.values(usersMap).map(u => {
+      const points = (u.reportCount * 50) + (u.upvoteCount * 10);
+      const badges: string[] = [];
+      
+      if (u.reportCount >= 5) badges.push('Road Hero 🏆');
+      if (u.upvoteCount >= 15) badges.push('Civic Sentinel 🌟');
+      if (points >= 200) badges.push('Clean City Champion 💪');
+
+      const profile = this.profiles.find(p => p.email === u.email);
+      const name = profile?.displayName || u.name;
+      const photoURL = profile?.photoURL || `https://api.dicebear.com/7.x/adventurer/svg?seed=${u.email}`;
+
+      return {
+        name,
+        email: u.email,
+        reportCount: u.reportCount,
+        upvoteCount: u.upvoteCount,
+        points,
+        badges,
+        photoURL
+      };
+    });
+
+    standings.sort((a, b) => b.points - a.points);
+    return standings;
   }
 
   public getReports(): Report[] { return this.reports; }

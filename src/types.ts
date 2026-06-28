@@ -40,6 +40,14 @@ export interface Report {
   duplicateIds: string[];
 }
 
+export interface UserProfile {
+  uid: string;
+  email: string;
+  displayName: string;
+  photoURL?: string;
+  createdAt?: string;
+}
+
 export interface WardStats {
   wardName: string;
   officerName: string;

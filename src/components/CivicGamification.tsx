@@ -6,6 +6,7 @@ import { Report } from '../types';
 interface CivicGamificationProps {
   user: any;
   reports: Report[];
+  leaderboard?: any[];
 }
 
 interface UserScore {
@@ -17,9 +18,13 @@ interface UserScore {
   badges: string[];
 }
 
-export default function CivicGamification({ user, reports = [] }: CivicGamificationProps) {
+export default function CivicGamification({ user, reports = [], leaderboard }: CivicGamificationProps) {
   // Aggregate reports dynamically to compute leaderboard standings
   const getLeaderboardAndUserStats = (): UserScore[] => {
+    if (leaderboard && leaderboard.length > 0) {
+      return leaderboard;
+    }
+
     const usersMap: Record<string, { name: string; email?: string; reportCount: number; upvoteCount: number }> = {};
     
     // Group all reports by reporter name
@@ -79,7 +84,8 @@ export default function CivicGamification({ user, reports = [] }: CivicGamificat
   const leaderboardData = getLeaderboardAndUserStats();
 
   const currentName = user?.displayName || user?.email?.split('@')[0] || 'Citizen';
-  const currentUserStats = leaderboardData.find(u => u.name === currentName) || {
+  const currentUserStats = leaderboardData.find(u => u.email && user?.email && u.email === user.email) || 
+                           leaderboardData.find(u => u.name === currentName) || {
     name: currentName,
     email: user?.email || '',
     reportCount: 0,

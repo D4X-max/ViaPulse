@@ -89,6 +89,32 @@ app.get('/api/stats', (req, res) => {
   }
 });
 
+// 3a. Save or check user profile idempotently on login
+app.post('/api/profiles', async (req, res) => {
+  try {
+    const { uid, email, displayName, photoURL } = req.body;
+    if (!email) {
+      return res.status(400).json({ error: 'Missing required email parameter' });
+    }
+    const profile = await db.saveProfile({ uid, email, displayName, photoURL });
+    res.json(profile);
+  } catch (error) {
+    console.error('Error saving user profile:', error);
+    res.status(500).json({ error: 'Failed to save profile record' });
+  }
+});
+
+// 3b. Compile live leaderboard standings
+app.get('/api/leaderboard', (req, res) => {
+  try {
+    const standings = db.compileLeaderboard();
+    res.json(standings);
+  } catch (error) {
+    console.error('Error compiling leaderboard:', error);
+    res.status(500).json({ error: 'Failed to compile leaderboard standings' });
+  }
+});
+
 // 4. Submit a new report with automated Triage, Geolocation Ward, and Deduplication
 app.post('/api/reports', async (req, res) => {
   const { image, latitude, longitude, reporterName, reporterEmail } = req.body;

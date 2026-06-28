@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Camera, Upload, AlertCircle, Send, CheckCircle, Navigation, MapPin, Sparkles, ShieldAlert, Eye, Settings, EyeOff } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Report } from '../types';
+import { auth } from '../lib/firebase';
 
 interface ReportHazardProps {
   user: any;
@@ -168,6 +169,10 @@ export default function ReportHazard({
     setIsSubmitting(true);
 
     try {
+      const currentUser = auth.currentUser;
+      const secureEmail = currentUser?.email || user?.email || 'anonymous@viapulse.gov';
+      const secureName = currentUser?.displayName || user?.displayName || user?.email?.split('@')[0] || 'Anonymous Citizen';
+
       const response = await fetch('/api/reports', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -175,8 +180,8 @@ export default function ReportHazard({
           image,
           latitude: newReportLocation?.latitude,
           longitude: newReportLocation?.longitude,
-          reporterName: reporterName || 'Anonymous Citizen',
-          reporterEmail: user?.email || '',
+          reporterName: secureName,
+          reporterEmail: secureEmail,
           description: description
         })
       });
@@ -400,9 +405,10 @@ export default function ReportHazard({
           <input
             type="text"
             value={reporterName}
-            onChange={(e) => setReporterName(e.target.value)}
+            readOnly
+            disabled
             placeholder="Anonymous Citizen"
-            className="w-full rounded-xl border border-gray-200 p-3 text-xs focus:outline-none focus:border-indigo-500 font-sans transition-all focus:bg-white bg-slate-50/50"
+            className="w-full rounded-xl border border-gray-200 p-3 text-xs focus:outline-none focus:border-indigo-500 font-sans transition-all bg-slate-100 text-gray-500 cursor-not-allowed"
           />
         </div>
 

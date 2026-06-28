@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Camera, Upload, AlertCircle, Send, CheckCircle, ArrowRight, User, ThumbsUp, MessageSquare, ShieldAlert, Navigation, Award } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Report, Category } from '../types';
+import { auth } from '../lib/firebase';
 
 interface CitizenPortalProps {
   onReportCreated: (report: Report, isDuplicate: boolean, message: string) => void;
@@ -228,6 +229,10 @@ export default function CitizenPortal({
     }, 1200);
 
     try {
+      const currentUser = auth.currentUser;
+      const secureEmail = currentUser?.email || user?.email || 'anonymous@viapulse.gov';
+      const secureName = currentUser?.displayName || user?.displayName || user?.email?.split('@')[0] || 'Anonymous Citizen';
+
       const response = await fetch('/api/reports', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -235,7 +240,8 @@ export default function CitizenPortal({
           image,
           latitude: newReportLocation.latitude,
           longitude: newReportLocation.longitude,
-          reporterName: reporterName || 'Anonymous Citizen'
+          reporterName: secureName,
+          reporterEmail: secureEmail
         })
       });
 
@@ -252,7 +258,7 @@ export default function CitizenPortal({
 
       // Reset form
       setImage(null);
-      setReporterName('');
+      setReporterName(secureName);
       setNewReportLocation(null);
       setFormStep('image');
       setIsSubmitting(false);
@@ -533,9 +539,10 @@ export default function CitizenPortal({
                       <input
                         type="text"
                         value={reporterName}
-                        onChange={(e) => setReporterName(e.target.value)}
-                        placeholder="e.g. Aria Chen"
-                        className="w-full pl-10 pr-4 py-2 rounded-xl border border-gray-200 focus:border-indigo-500 focus:outline-none text-xs font-sans transition-all placeholder:text-gray-400 bg-slate-50/50 focus:bg-white"
+                        readOnly
+                        disabled
+                        placeholder="Anonymous Citizen"
+                        className="w-full pl-10 pr-4 py-2 rounded-xl border border-gray-200 focus:outline-none text-xs font-sans transition-all placeholder:text-gray-400 bg-slate-100 text-gray-500 cursor-not-allowed"
                       />
                     </div>
                   </div>
