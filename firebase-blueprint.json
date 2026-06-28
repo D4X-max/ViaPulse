@@ -1,0 +1,86 @@
+{
+  "entities": {
+    "Report": {
+      "title": "Report",
+      "description": "A civic utility issue reported by a citizen",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique report identifier"
+        },
+        "latitude": {
+          "type": "number",
+          "description": "Geographic latitude coordinate"
+        },
+        "longitude": {
+          "type": "number",
+          "description": "Geographic longitude coordinate"
+        },
+        "category": {
+          "type": "string",
+          "description": "Type of hazard or issue"
+        },
+        "severity": {
+          "type": "string",
+          "description": "Severity level of the hazard"
+        },
+        "status": {
+          "type": "string",
+          "description": "Current resolution stage status"
+        },
+        "description": {
+          "type": "string",
+          "description": "Citizen description of the issue"
+        },
+        "imageUrl": {
+          "type": "string",
+          "description": "Before or after image URL"
+        },
+        "reporterName": {
+          "type": "string",
+          "description": "Name of citizen submitting report"
+        },
+        "reporterEmail": {
+          "type": "string",
+          "description": "Email address of the citizen"
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Timestamp of creation"
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "Timestamp of last modification"
+        },
+        "ward": {
+          "type": "string",
+          "description": "Assigned municipal ward name"
+        },
+        "wardEmail": {
+          "type": "string",
+          "description": "Email of assigned public works officer"
+        },
+        "ombudsmanLetter": {
+          "type": "string",
+          "description": "Formal generated demand letter"
+        },
+        "reportCount": {
+          "type": "number",
+          "description": "Number of duplicate reports counted"
+        },
+        "upvotes": {
+          "type": "number",
+          "description": "Citizen upvote confirmations"
+        }
+      },
+      "required": ["id", "latitude", "longitude", "category", "status", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/reports/{reportId}": {
+      "schema": "Report",
+      "description": "Collection of all submitted civic reports"
+    }
+  }
+}

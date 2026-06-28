@@ -8,7 +8,6 @@ import PublicScorecard from './components/PublicScorecard';
 import CivicGamification from './components/CivicGamification';
 import TopographicBackground from './components/TopographicBackground';
 import { Report, DashboardStats } from './types';
-import OnboardingFlow from './components/onboarding/OnboardingFlow';
 import { auth } from './lib/firebase';
 import { signOut, onAuthStateChanged } from 'firebase/auth';
 import AuthGate from './components/AuthGate';
@@ -21,9 +20,6 @@ import AnalyticsDashboard from './components/AnalyticsDashboard';
 import FloatingChatbot from './components/FloatingChatbot';
 
 export default function App() {
-  const [onboardingCompleted, setOnboardingCompleted] = useState<boolean>(() => {
-    return localStorage.getItem('onboarding_completed') === 'true';
-  });
   const [reports, setReports] = useState<Report[]>([]);
   const [stats, setStats] = useState<DashboardStats>({
     totalActive: 0,
@@ -243,16 +239,7 @@ export default function App() {
     }
   };
 
-  if (!onboardingCompleted) {
-    return (
-      <OnboardingFlow 
-        onComplete={() => {
-          localStorage.setItem('onboarding_completed', 'true');
-          setOnboardingCompleted(true);
-        }} 
-      />
-    );
-  }
+
 
   // If user is not signed in or role is not resolved, display the elegant dual-path Auth Gate
   if (!user && !userRole) {
@@ -681,15 +668,6 @@ export default function App() {
       {/* Minimal Footer */}
       <footer className="bg-white border-t border-gray-100 py-3.5 px-6 text-center text-[10px] text-gray-400 font-sans mt-auto flex flex-col sm:flex-row items-center justify-between gap-3">
         <span>WardWatch Autonomous Ombudsman Framework © 2026. Powered by Google Gemini Multi-Agent Infrastructure.</span>
-        <button
-          onClick={() => {
-            localStorage.removeItem('onboarding_completed');
-            setOnboardingCompleted(false);
-          }}
-          className="text-indigo-600 hover:text-indigo-800 font-semibold underline cursor-pointer transition-all"
-        >
-          Reset Onboarding Experience
-        </button>
       </footer>
 
     </div>
