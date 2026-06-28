@@ -253,25 +253,9 @@ export default function ReportMap({
       const icon = getMarkerIcon(report, isSelected);
 
       const popupHtml = `
-        <div class="p-2 font-sans min-w-[220px] max-w-[240px] text-gray-800">
-          <div class="rounded-lg overflow-hidden border border-gray-100 mb-2 shadow-sm">
-            <img src="${report.imageUrl || 'https://images.unsplash.com/photo-1515162305285-0293e4767cc2'}" class="w-full h-24 object-cover" referrerPolicy="no-referrer" />
-          </div>
-          <div class="flex items-center justify-between gap-1.5 mb-1.5">
-            <span class="text-[9px] uppercase font-bold px-1.5 py-0.5 rounded bg-slate-900 text-slate-100 font-mono tracking-wider">
-              📍 ${(report.category || 'UNKNOWN').toUpperCase()}
-            </span>
-            <span class="text-[9px] font-extrabold uppercase px-1.5 py-0.5 rounded ${
-              isClosed ? 'bg-emerald-50 text-emerald-700 border border-emerald-100' : 'bg-indigo-50 text-indigo-700 border border-indigo-100'
-            }">
-              ${report.status || 'PENDING'}
-            </span>
-          </div>
-          <p class="text-xs text-gray-700 font-medium leading-normal mb-2 mt-1 truncate-3-lines">${report.description || 'No description provided.'}</p>
-          <div class="flex items-center justify-between border-t border-gray-100 pt-2 text-[10px] text-gray-400 font-mono">
-            <span class="flex items-center gap-1">💬 ${report.comments?.length || 0} Comments</span>
-            <span class="flex items-center gap-1">👍 ${report.upvotes || 0} Escalations</span>
-          </div>
+        <div class="p-1 font-sans text-[11px] font-bold text-slate-900 flex items-center gap-1.5">
+          <span class="w-1.5 h-1.5 rounded-full ${isClosed ? 'bg-emerald-500' : 'bg-rose-500'}"></span>
+          <span>📍 ${(report.category || 'hazard').toUpperCase()} - ${report.status || 'REPORTED'}</span>
         </div>
       `;
 

@@ -566,10 +566,10 @@ export default function App() {
         </div>
       ) : (
         /* 3. Main Workspace Grid - Split Map Layout */
-        <main className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-6 p-4 md:p-6 lg:p-8 pt-8 md:pt-8 lg:pt-8 max-w-[1600px] mx-auto w-full overflow-hidden">
+        <main className={`flex-1 grid grid-cols-1 ${activeTab === 'tracking' ? '' : 'lg:grid-cols-12'} gap-6 p-4 md:p-6 lg:p-8 pt-8 md:pt-8 lg:pt-8 max-w-[1600px] mx-auto w-full overflow-hidden`}>
           
-          {/* TAB PANEL WORKSPACE: Occupies 7 columns on large desktop */}
-          <section className="lg:col-span-7 bg-white rounded-2xl border border-gray-100 shadow-sm p-4 md:p-6 flex flex-col min-h-[450px] lg:min-h-0">
+          {/* TAB PANEL WORKSPACE: Occupies 7 columns on large desktop, or 12 columns if map is hidden */}
+          <section className={`${activeTab === 'tracking' ? 'lg:col-span-12' : 'lg:col-span-7'} bg-white rounded-2xl border border-gray-100 shadow-sm p-4 md:p-6 flex flex-col min-h-[450px] lg:min-h-0`}>
             <AnimatePresence mode="wait">
               {activeTab === 'home' && (
                 <motion.div
@@ -678,16 +678,18 @@ export default function App() {
           </section>
 
           {/* INTERACTIVE MAP PANEL: Occupies 5 columns on large desktop */}
-          <section className="lg:col-span-5 h-[350px] sm:h-[450px] lg:h-[75vh] min-h-[350px] flex flex-col sticky top-24">
-            <ReportMap
-              reports={reports}
-              selectedReportId={selectedReport?.id}
-              onSelectReport={(r) => setSelectedReport(r)}
-              onSelectLocation={activeTab === 'report' ? handleSelectLocationFromMap : undefined}
-              newReportLocation={newReportLocation}
-              categoryFilter={mapCategoryFilter}
-            />
-          </section>
+          {activeTab !== 'tracking' && (
+            <section className="lg:col-span-5 h-[350px] sm:h-[450px] lg:h-[75vh] min-h-[350px] flex flex-col sticky top-24">
+              <ReportMap
+                reports={reports}
+                selectedReportId={selectedReport?.id}
+                onSelectReport={(r) => setSelectedReport(r)}
+                onSelectLocation={activeTab === 'report' ? handleSelectLocationFromMap : undefined}
+                newReportLocation={newReportLocation}
+                categoryFilter={mapCategoryFilter}
+              />
+            </section>
+          )}
 
         </main>
       )}
