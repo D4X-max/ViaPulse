@@ -619,10 +619,10 @@ export default function CitizenPortal({
                     </div>
 
                     {/* Show After Photo if resolved */}
-                    {selectedReport.status === 'CLOSED_VERIFIED' && selectedReport.history.some(h => h.imageUrl) && (
+                    {selectedReport?.status === 'CLOSED_VERIFIED' && (selectedReport?.history || []).some(h => h?.imageUrl) && (
                       <div className="relative rounded-xl overflow-hidden bg-slate-50 border border-emerald-100 aspect-video max-h-[180px]">
                         <img
-                          src={selectedReport.history.find(h => h.imageUrl)?.imageUrl}
+                          src={(selectedReport?.history || []).find(h => h?.imageUrl)?.imageUrl}
                           alt="Resolution Visual proof"
                           className="w-full h-full object-cover"
                           referrerPolicy="no-referrer"
@@ -713,8 +713,8 @@ export default function CitizenPortal({
 
                     {/* Comments thread */}
                     <div className="flex flex-col gap-2 max-h-[200px] overflow-y-auto">
-                      {selectedReport.comments.map((comment) => (
-                        <div key={comment.id} className="bg-slate-50/60 p-2.5 rounded-xl border border-gray-100 text-xs flex flex-col gap-1">
+                      {(selectedReport?.comments || []).map((comment) => (
+                        <div key={comment?.id || Math.random().toString()} className="bg-slate-50/60 p-2.5 rounded-xl border border-gray-100 text-xs flex flex-col gap-1">
                           <div className="flex items-center justify-between text-[10px] text-gray-400">
                             <span className="font-bold text-gray-700">{comment.author}</span>
                             <span>{new Date(comment.createdAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>

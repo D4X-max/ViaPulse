@@ -28,6 +28,15 @@ export default function TrackingHub({
   const [localConfirmations, setLocalConfirmations] = useState<{ [key: string]: boolean }>({});
   const [localDismissals, setLocalDismissals] = useState<{ [key: string]: boolean }>({});
 
+  if (!reports) {
+    return (
+      <div className="flex flex-col items-center justify-center p-12 text-slate-400 gap-3 border border-dashed border-slate-200 rounded-2xl min-h-[300px]">
+        <div className="w-8 h-8 rounded-full border-4 border-indigo-500 border-t-transparent animate-spin"></div>
+        <p className="text-xs font-mono">Synchronizing civic tracking telemetry...</p>
+      </div>
+    );
+  }
+
   const handleConfirm = (id: string) => {
     if (localConfirmations[id]) return;
     setLocalConfirmations(prev => ({ ...prev, [id]: true }));
@@ -73,7 +82,7 @@ export default function TrackingHub({
             </span>
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mt-1">
               <h3 className="text-sm font-bold font-display uppercase tracking-wider text-slate-100">
-                Ticket ID: <span className="font-mono text-indigo-300">Road-{selectedReport.id.slice(0, 5)}</span>
+                Ticket ID: <span className="font-mono text-indigo-300">Road-{(selectedReport?.id || "").slice(0, 5)}</span>
               </h3>
               
               {/* Progress Stepper Bar */}
@@ -145,16 +154,16 @@ export default function TrackingHub({
 
         {/* Localized civic Reddit forum grid loop */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {reports.map((report) => (
+          {(reports || []).map((report) => (
             <div 
-              key={report.id}
+              key={report?.id || Math.random().toString()}
               className={`bg-white rounded-xl border p-4 shadow-sm flex flex-col justify-between gap-4 transition-all hover:border-indigo-100 hover:shadow ${
-                selectedReport?.id === report.id ? 'border-indigo-400 ring-1 ring-indigo-400/25' : 'border-gray-100'
+                selectedReport?.id === report?.id ? 'border-indigo-400 ring-1 ring-indigo-400/25' : 'border-gray-100'
               }`}
             >
               <div className="flex items-start gap-3">
                 <img 
-                  src={report.imageUrl} 
+                  src={report?.imageUrl || ''} 
                   alt="Incident" 
                   className="w-16 h-16 rounded-xl object-cover shrink-0 border border-gray-100 shadow-inner bg-slate-50"
                   referrerPolicy="no-referrer"
@@ -162,22 +171,22 @@ export default function TrackingHub({
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between">
                     <span className="text-[10px] font-bold text-slate-700 bg-slate-100 px-2 py-0.5 rounded font-mono uppercase">
-                      📍 {report.category}
+                      📍 {report?.category || 'other'}
                     </span>
                     <span className="text-[9px] text-gray-400 font-mono">
-                      {report.ward}
+                      {report?.ward || 'Unknown'}
                     </span>
                   </div>
                   <p className="text-xs text-gray-800 font-medium leading-normal mt-1.5 line-clamp-2">
-                    {report.description}
+                    {report?.description || 'No description provided.'}
                   </p>
                 </div>
               </div>
 
               {/* Comment Drawer / Inline Input trigger */}
-              {activeCommentReportId === report.id && (
+              {activeCommentReportId === report?.id && (
                 <form 
-                  onSubmit={(e) => handleCommentSubmit(e, report.id)}
+                  onSubmit={(e) => handleCommentSubmit(e, report?.id || '')}
                   className="mt-2.5 flex items-center gap-2 border-t border-gray-50 pt-3"
                 >
                   <input
@@ -200,21 +209,21 @@ export default function TrackingHub({
               <div className="flex items-center justify-between border-t border-gray-50 pt-3 text-[11px] font-bold text-gray-500">
                 <div className="flex items-center gap-2.5">
                   <button
-                    onClick={() => handleConfirm(report.id)}
+                    onClick={() => report?.id && handleConfirm(report.id)}
                     className={`flex items-center gap-1.5 px-2 py-1 rounded-md transition-colors ${
-                      localConfirmations[report.id]
+                      report?.id && localConfirmations[report.id]
                         ? 'bg-emerald-50 text-emerald-600'
                         : 'hover:bg-slate-50 hover:text-gray-800'
                     }`}
                   >
                     <ThumbsUp className="w-3.5 h-3.5 stroke-[2.2]" />
-                    <span>Confirm Existence ({report.upvotes || 0})</span>
+                    <span>Confirm Existence ({report?.upvotes || 0})</span>
                   </button>
 
                   <button
-                    onClick={() => handleDismiss(report.id)}
+                    onClick={() => report?.id && handleDismiss(report.id)}
                     className={`flex items-center gap-1.5 px-2 py-1 rounded-md transition-colors ${
-                      localDismissals[report.id]
+                      report?.id && localDismissals[report.id]
                         ? 'bg-rose-50 text-rose-600'
                         : 'hover:bg-slate-50 hover:text-gray-800'
                     }`}
@@ -226,16 +235,16 @@ export default function TrackingHub({
 
                 <div className="flex items-center gap-1.5">
                   <button
-                    onClick={() => setActiveCommentReportId(activeCommentReportId === report.id ? null : report.id)}
+                    onClick={() => report?.id && setActiveCommentReportId(activeCommentReportId === report.id ? null : report.id)}
                     className="flex items-center gap-1 hover:text-indigo-600 transition-colors"
                     title="Public Comments Feed"
                   >
                     <MessageSquare className="w-3.5 h-3.5 stroke-[2.2]" />
-                    <span>({report.comments?.length || 0})</span>
+                    <span>({report?.comments?.length || 0})</span>
                   </button>
 
                   <button
-                    onClick={() => triggerUploadValidation(report.id)}
+                    onClick={() => report?.id && triggerUploadValidation(report.id)}
                     className="p-1 rounded bg-slate-50 hover:bg-slate-100 hover:text-indigo-600 border border-gray-100 transition-all"
                     title="Upload Supporting Validation Photo"
                   >

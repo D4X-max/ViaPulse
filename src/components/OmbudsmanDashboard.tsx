@@ -312,7 +312,7 @@ export default function OmbudsmanDashboard({
                 <span className="text-[10px] uppercase font-bold tracking-wider text-indigo-600 font-mono">Assigned Official Contact</span>
                 <h3 className="text-sm font-bold text-gray-800 font-sans flex items-center gap-1.5">
                   <User className="w-4 h-4 text-gray-400" />
-                  {selectedReport.ward} — {selectedReport.history.slice(-1)[0]?.updatedBy || 'Official'}
+                  {selectedReport.ward} — {(selectedReport?.history || []).slice(-1)[0]?.updatedBy || 'Official'}
                 </h3>
               </div>
               
@@ -555,27 +555,27 @@ export default function OmbudsmanDashboard({
               <h4 className="text-xs font-bold text-gray-800 uppercase tracking-wider text-slate-400">Incident Operational Timeline</h4>
               
               <div className="relative border-l border-gray-100 pl-4 ml-1 flex flex-col gap-4">
-                {selectedReport.history.map((hist, idx) => (
+                {(selectedReport?.history || []).map((hist, idx) => (
                   <div key={idx} className="relative">
                     {/* Circle Dot indicator */}
                     <span className={`absolute -left-[21px] top-0.5 w-2.5 h-2.5 rounded-full ring-4 ring-white ${
-                      hist.status === 'CLOSED_VERIFIED' 
+                      hist?.status === 'CLOSED_VERIFIED' 
                         ? 'bg-emerald-500' 
-                        : hist.status === 'RESOLVED'
+                        : hist?.status === 'RESOLVED'
                         ? 'bg-teal-500'
-                        : hist.status === 'DISPATCHED'
+                        : hist?.status === 'DISPATCHED'
                         ? 'bg-amber-500'
                         : 'bg-indigo-500'
                     }`} />
 
                     <div className="flex flex-col gap-0.5 text-xs">
                       <div className="flex items-center gap-1.5 font-bold text-gray-800">
-                        <span className="font-display font-medium text-[11px] uppercase tracking-wide">{hist.status}</span>
-                        <span className="text-[10px] font-normal text-gray-400">• by {hist.updatedBy}</span>
+                        <span className="font-display font-medium text-[11px] uppercase tracking-wide">{hist?.status || 'PENDING'}</span>
+                        <span className="text-[10px] font-normal text-gray-400">• by {hist?.updatedBy || 'Official'}</span>
                       </div>
-                      <span className="text-[9px] text-gray-400 font-mono">{new Date(hist.timestamp).toLocaleString()}</span>
+                      <span className="text-[9px] text-gray-400 font-mono">{hist?.timestamp ? new Date(hist.timestamp).toLocaleString() : 'N/A'}</span>
                       <p className="text-[11px] text-gray-500 mt-0.5 leading-normal italic">
-                        "{hist.comment}"
+                        "{hist?.comment || ''}"
                       </p>
                     </div>
                   </div>

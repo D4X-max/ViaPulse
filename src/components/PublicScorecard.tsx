@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { DashboardStats, WardStats } from '../types';
-import { Award, CheckCircle2, AlertTriangle, ShieldAlert, Zap, TrendingUp, BarChart3 } from 'lucide-react';
+import { Award, CheckCircle2, AlertTriangle, ShieldAlert, Zap, TrendingUp, BarChart3, RefreshCw } from 'lucide-react';
 import PredictiveRadar from './PredictiveRadar';
 
 interface PublicScorecardProps {
@@ -19,10 +19,19 @@ export default function PublicScorecard({ stats }: PublicScorecardProps) {
     return { letter: 'F', color: 'text-rose-600 bg-rose-50 border-rose-100' };
   };
 
+  if (!stats) {
+    return (
+      <div className="flex flex-col items-center justify-center p-12 text-slate-400 gap-3 min-h-[300px]">
+        <RefreshCw className="w-8 h-8 animate-spin text-indigo-500" />
+        <p className="text-xs font-mono">Synchronizing scorecard telemetry...</p>
+      </div>
+    );
+  }
+
   // Compute total submissions
-  const totalSubmissions = stats.totalActive + stats.totalResolved;
+  const totalSubmissions = (stats.totalActive || 0) + (stats.totalResolved || 0);
   const resolutionRate = totalSubmissions > 0 
-    ? Math.round((stats.totalResolved / totalSubmissions) * 100) 
+    ? Math.round(((stats.totalResolved || 0) / totalSubmissions) * 100) 
     : 100;
 
   return (
@@ -110,7 +119,7 @@ export default function PublicScorecard({ stats }: PublicScorecardProps) {
           <div className="bg-white px-3 py-2.5 rounded-lg border border-gray-100 flex items-center justify-between">
             <div className="flex flex-col">
               <span className="text-[10px] font-bold text-gray-400">Potholes</span>
-              <span className="text-sm font-black text-gray-800 mt-0.5">{stats.potholeCount}</span>
+              <span className="text-sm font-black text-gray-800 mt-0.5">{stats.potholeCount || 0}</span>
             </div>
             <span className="w-2 h-2 rounded-full bg-rose-500" />
           </div>
@@ -118,7 +127,7 @@ export default function PublicScorecard({ stats }: PublicScorecardProps) {
           <div className="bg-white px-3 py-2.5 rounded-lg border border-gray-100 flex items-center justify-between">
             <div className="flex flex-col">
               <span className="text-[10px] font-bold text-gray-400">Garbage</span>
-              <span className="text-sm font-black text-gray-800 mt-0.5">{stats.garbageCount}</span>
+              <span className="text-sm font-black text-gray-800 mt-0.5">{stats.garbageCount || 0}</span>
             </div>
             <span className="w-2 h-2 rounded-full bg-orange-500" />
           </div>
@@ -126,7 +135,7 @@ export default function PublicScorecard({ stats }: PublicScorecardProps) {
           <div className="bg-white px-3 py-2.5 rounded-lg border border-gray-100 flex items-center justify-between">
             <div className="flex flex-col">
               <span className="text-[10px] font-bold text-gray-400">Leaks</span>
-              <span className="text-sm font-black text-gray-800 mt-0.5">{stats.waterCount}</span>
+              <span className="text-sm font-black text-gray-800 mt-0.5">{stats.waterCount || 0}</span>
             </div>
             <span className="w-2 h-2 rounded-full bg-blue-500" />
           </div>
@@ -134,7 +143,7 @@ export default function PublicScorecard({ stats }: PublicScorecardProps) {
           <div className="bg-white px-3 py-2.5 rounded-lg border border-gray-100 flex items-center justify-between">
             <div className="flex flex-col">
               <span className="text-[10px] font-bold text-gray-400">Lights</span>
-              <span className="text-sm font-black text-gray-800 mt-0.5">{stats.lightingCount}</span>
+              <span className="text-sm font-black text-gray-800 mt-0.5">{stats.lightingCount || 0}</span>
             </div>
             <span className="w-2 h-2 rounded-full bg-yellow-500" />
           </div>
@@ -146,23 +155,23 @@ export default function PublicScorecard({ stats }: PublicScorecardProps) {
         <h3 className="text-xs font-bold text-gray-800 uppercase tracking-wider text-slate-400">Ward Response Rankings</h3>
 
         <div className="flex flex-col gap-3">
-          {stats.wardStats
-            .sort((a, b) => b.score - a.score) // Sort by descending responsiveness score
+          {(stats.wardStats || [])
+            .sort((a, b) => (b?.score || 0) - (a?.score || 0)) // Sort by descending responsiveness score
             .map((ward, idx) => {
-              const rankInfo = getRankLetter(ward.score);
+              const rankInfo = getRankLetter(ward?.score || 0);
               return (
-                <div key={ward.wardName} className="bg-white rounded-xl border border-gray-100 p-4 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div key={ward?.wardName || `ward-${idx}`} className="bg-white rounded-xl border border-gray-100 p-4 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
                   {/* Leaderboard Index, Title and Officer info */}
                   <div className="flex items-start gap-3.5 min-w-0 flex-1">
                     <span className="flex items-center justify-center w-6 h-6 rounded-lg bg-slate-50 border border-gray-100 text-[10px] font-bold text-gray-500 shrink-0 font-mono mt-0.5">
                       #{idx + 1}
                     </span>
                     <div className="flex flex-col gap-0.5 min-w-0">
-                      <h4 className="font-display font-bold text-gray-800 text-sm truncate">{ward.wardName}</h4>
+                      <h4 className="font-display font-bold text-gray-800 text-sm truncate">{ward?.wardName || 'Unknown Ward'}</h4>
                       <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2 text-[10px] text-gray-400">
-                        <span className="font-medium text-gray-600">Officer: {ward.officerName}</span>
+                        <span className="font-medium text-gray-600">Officer: {ward?.officerName || 'N/A'}</span>
                         <span className="hidden sm:inline">•</span>
-                        <span className="font-mono">{ward.email}</span>
+                        <span className="font-mono">{ward?.email || 'N/A'}</span>
                       </div>
                     </div>
                   </div>
@@ -171,15 +180,15 @@ export default function PublicScorecard({ stats }: PublicScorecardProps) {
                   <div className="grid grid-cols-3 gap-4 md:gap-8 text-center border-t border-b sm:border-none py-2 sm:py-0 border-gray-50">
                     <div className="flex flex-col gap-0.5">
                       <span className="text-[9px] font-bold uppercase tracking-wider text-gray-400">Reported</span>
-                      <span className="text-xs font-black text-gray-700">{ward.totalReports}</span>
+                      <span className="text-xs font-black text-gray-700">{ward?.totalReports || 0}</span>
                     </div>
                     <div className="flex flex-col gap-0.5">
                       <span className="text-[9px] font-bold uppercase tracking-wider text-gray-400">Resolved</span>
-                      <span className="text-xs font-black text-emerald-600">{ward.resolvedReports}</span>
+                      <span className="text-xs font-black text-emerald-600">{ward?.resolvedReports || 0}</span>
                     </div>
                     <div className="flex flex-col gap-0.5">
                       <span className="text-[9px] font-bold uppercase tracking-wider text-gray-400">Avg SLA Time</span>
-                      <span className="text-xs font-black text-indigo-600 font-mono">{ward.avgResolutionTimeHours}h</span>
+                      <span className="text-xs font-black text-indigo-600 font-mono">{ward?.avgResolutionTimeHours || 0}h</span>
                     </div>
                   </div>
 
@@ -191,10 +200,10 @@ export default function PublicScorecard({ stats }: PublicScorecardProps) {
                       <div className="w-full bg-slate-100 rounded-full h-1.5 overflow-hidden">
                         <div
                           className="bg-indigo-600 h-1.5 rounded-full"
-                          style={{ width: `${ward.score}%` }}
+                          style={{ width: `${ward?.score || 0}%` }}
                         />
                       </div>
-                      <span className="text-[9px] font-mono font-medium text-gray-400">{ward.score}/100</span>
+                      <span className="text-[9px] font-mono font-medium text-gray-400">{ward?.score || 0}/100</span>
                     </div>
 
                     {/* Letter Grade Card */}

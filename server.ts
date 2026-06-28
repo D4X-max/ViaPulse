@@ -55,9 +55,9 @@ app.get('/api/health', (req, res) => {
 });
 
 // 2. List all reports
-app.get('/api/reports', (req, res) => {
+app.get('/api/reports', async (req, res) => {
   try {
-    const reports = db.getReports();
+    const reports = await db.getReports();
     res.json(reports);
   } catch (error) {
     res.status(500).json({ error: 'Failed to retrieve reports' });
@@ -65,9 +65,9 @@ app.get('/api/reports', (req, res) => {
 });
 
 // 3. Get ward response scorecard & dashboard stats
-app.get('/api/stats', (req, res) => {
+app.get('/api/stats', async (req, res) => {
   try {
-    const reports = db.getReports();
+    const reports = await db.getReports();
     const wardStats = db.getWardStats();
 
     const activeReports = reports.filter(r => r.status !== 'CLOSED_VERIFIED');
@@ -105,9 +105,9 @@ app.post('/api/profiles', async (req, res) => {
 });
 
 // 3b. Compile live leaderboard standings
-app.get('/api/leaderboard', (req, res) => {
+app.get('/api/leaderboard', async (req, res) => {
   try {
-    const standings = db.compileLeaderboard();
+    const standings = await db.compileLeaderboard();
     res.json(standings);
   } catch (error) {
     console.error('Error compiling leaderboard:', error);
@@ -319,7 +319,7 @@ app.post('/api/reports/:id/status', async (req, res) => {
   }
 
   try {
-    const report = db.getReportById(id);
+    const report = await db.getReportById(id);
     if (!report) {
       return res.status(404).json({ error: 'Report not found' });
     }
@@ -348,7 +348,7 @@ app.post('/api/reports/:id/upvote', async (req, res) => {
   const { id } = req.params;
 
   try {
-    const report = db.getReportById(id);
+    const report = await db.getReportById(id);
     if (!report) {
       return res.status(404).json({ error: 'Report not found' });
     }
@@ -373,7 +373,7 @@ app.post('/api/reports/:id/comments', async (req, res) => {
   }
 
   try {
-    const report = db.getReportById(id);
+    const report = await db.getReportById(id);
     if (!report) {
       return res.status(404).json({ error: 'Report not found' });
     }
@@ -405,7 +405,7 @@ app.post('/api/reports/:id/verify-resolution', async (req, res) => {
   }
 
   try {
-    const report = db.getReportById(id);
+    const report = await db.getReportById(id);
     if (!report) {
       return res.status(404).json({ error: 'Report not found' });
     }

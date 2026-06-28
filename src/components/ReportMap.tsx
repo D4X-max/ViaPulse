@@ -170,9 +170,9 @@ export default function ReportMap({
 
   // Create Custom SVG Markers based on Category, Severity, and Status
   const getMarkerIcon = (report: Report, isSelected: boolean) => {
-    const isClosed = report.status === 'CLOSED_VERIFIED' || report.status === 'RESOLVED';
-    const isHigh = report.severity === 'high';
-    const category = report.category;
+    const isClosed = report?.status === 'CLOSED_VERIFIED' || report?.status === 'RESOLVED';
+    const isHigh = report?.severity === 'high';
+    const category = report?.category || 'other';
 
     // Synchronize map pin markers dynamically based on payload state
     // - CLOSED / RESOLVED: Soft Emerald Green checkmark badge icon
@@ -226,12 +226,12 @@ export default function ReportMap({
     if (!map) return;
 
     // Filter reports locally
-    const filteredReports = reports.filter(r => {
-      const catKey = r.category || 'pothole';
+    const filteredReports = (reports || []).filter(r => {
+      const catKey = r?.category || 'pothole';
       return selectedFilters[catKey] === true;
     });
 
-    const currentIds = new Set(filteredReports.map(r => r.id));
+    const currentIds = new Set((filteredReports || []).map(r => r?.id || ''));
     
     // Clear existing markers that are not in the filtered reports list
     Object.keys(markersRef.current).forEach(id => {
@@ -246,7 +246,8 @@ export default function ReportMap({
     });
 
     // Add or update markers
-    filteredReports.forEach(report => {
+    (filteredReports || []).forEach(report => {
+      if (!report || !report.id) return;
       const isSelected = report.id === selectedReportId;
       const isClosed = report.status === 'CLOSED_VERIFIED' || report.status === 'RESOLVED';
       const icon = getMarkerIcon(report, isSelected);
@@ -258,12 +259,12 @@ export default function ReportMap({
           </div>
           <div class="flex items-center justify-between gap-1.5 mb-1.5">
             <span class="text-[9px] uppercase font-bold px-1.5 py-0.5 rounded bg-slate-900 text-slate-100 font-mono tracking-wider">
-              📍 ${report.category.toUpperCase()}
+              📍 ${(report.category || 'UNKNOWN').toUpperCase()}
             </span>
             <span class="text-[9px] font-extrabold uppercase px-1.5 py-0.5 rounded ${
               isClosed ? 'bg-emerald-50 text-emerald-700 border border-emerald-100' : 'bg-indigo-50 text-indigo-700 border border-indigo-100'
             }">
-              ${report.status}
+              ${report.status || 'PENDING'}
             </span>
           </div>
           <p class="text-xs text-gray-700 font-medium leading-normal mb-2 mt-1 truncate-3-lines">${report.description || 'No description provided.'}</p>
@@ -314,7 +315,7 @@ export default function ReportMap({
     const map = mapRef.current;
     if (!map || !selectedReportId) return;
 
-    const selectedReport = reports.find(r => r.id === selectedReportId);
+    const selectedReport = (reports || []).find(r => r?.id === selectedReportId);
     if (selectedReport) {
       try {
         map.setView([selectedReport.latitude, selectedReport.longitude], 15, {

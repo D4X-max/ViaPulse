@@ -1,8 +1,21 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+    
+    // Reports Collection: Enable basic authenticated access
     match /reports/{reportId} {
-      allow read, write: if true;
+      // Allow any authenticated user to view reports
+      allow read: if request.auth != null;
+      // Allow any authenticated user to log or update hazard reports
+      allow write: if request.auth != null;
+    }
+
+    // User Profiles Collection: Securely restrict writes to the owner
+    match /profiles/{email} {
+      // Allow authenticated users to view profiles (needed for leaderboards/citizen lists)
+      allow read: if request.auth != null;
+      // Allow write access only if the authenticated user's email matches the profile document ID
+      allow write: if request.auth != null && (request.auth.token.email == email || request.auth.uid == email);
     }
   }
 }

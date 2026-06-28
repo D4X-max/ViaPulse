@@ -1,6 +1,6 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
-import { initializeFirestore } from 'firebase/firestore';
+import { getFirestore } from 'firebase/firestore';
 import config from '../../firebase-applet-config.json';
 
 const firebaseConfig = {
@@ -19,5 +19,5 @@ export const app = initializeApp(firebaseConfig);
 // Initialize Firebase Authentication
 export const auth = getAuth(app);
 
-// Initialize Firestore with the default database
-export const db = initializeFirestore(app, { experimentalForceLongPolling: true });
+// Initialize Firestore
+export const db = getFirestore(app, 'ai-studio-viapulse-9eb3c16f-0fd3-44d8-be73-29ccf536900f');

@@ -28,9 +28,9 @@ export default function CivicGamification({ user, reports = [], leaderboard }: C
     const usersMap: Record<string, { name: string; email?: string; reportCount: number; upvoteCount: number }> = {};
     
     // Group all reports by reporter name
-    reports.forEach(r => {
-      const name = r.reporterName || 'Anonymous Citizen';
-      const email = r.reporterEmail || '';
+    (reports || []).forEach(r => {
+      const name = r?.reporterName || 'Anonymous Citizen';
+      const email = r?.reporterEmail || '';
       
       if (!usersMap[name]) {
         usersMap[name] = {
@@ -42,16 +42,16 @@ export default function CivicGamification({ user, reports = [], leaderboard }: C
       }
       
       usersMap[name].reportCount += 1;
-      usersMap[name].upvoteCount += (r.upvotes || 0);
+      usersMap[name].upvoteCount += (r?.upvotes || 0);
     });
 
     // Make sure current user is represented if logged in
     if (user) {
-      const currentName = user.displayName || user.email?.split('@')[0] || 'Citizen';
+      const currentName = user?.displayName || user?.email?.split('@')[0] || 'Citizen';
       if (!usersMap[currentName]) {
         usersMap[currentName] = {
           name: currentName,
-          email: user.email || '',
+          email: user?.email || '',
           reportCount: 0,
           upvoteCount: 0
         };
@@ -62,11 +62,11 @@ export default function CivicGamification({ user, reports = [], leaderboard }: C
     // - 50 Hero Points per report entry
     // - 10 Hero Points per upvote/confirmation
     const standings: UserScore[] = Object.values(usersMap).map(u => {
-      const points = (u.reportCount * 50) + (u.upvoteCount * 10);
+      const points = ((u?.reportCount || 0) * 50) + ((u?.upvoteCount || 0) * 10);
       const badges: string[] = [];
       
-      if (u.reportCount >= 5) badges.push('Road Hero 🏆');
-      if (u.upvoteCount >= 15) badges.push('Civic Sentinel 🌟');
+      if ((u?.reportCount || 0) >= 5) badges.push('Road Hero 🏆');
+      if ((u?.upvoteCount || 0) >= 15) badges.push('Civic Sentinel 🌟');
       if (points >= 200) badges.push('Clean City Champion 💪');
       
       return {
@@ -81,11 +81,11 @@ export default function CivicGamification({ user, reports = [], leaderboard }: C
     return standings;
   };
 
-  const leaderboardData = getLeaderboardAndUserStats();
+  const leaderboardData = getLeaderboardAndUserStats() || [];
 
   const currentName = user?.displayName || user?.email?.split('@')[0] || 'Citizen';
-  const currentUserStats = leaderboardData.find(u => u.email && user?.email && u.email === user.email) || 
-                           leaderboardData.find(u => u.name === currentName) || {
+  const currentUserStats = (leaderboardData || []).find(u => u?.email && user?.email && u.email === user.email) || 
+                           (leaderboardData || []).find(u => u?.name === currentName) || {
     name: currentName,
     email: user?.email || '',
     reportCount: 0,
@@ -101,7 +101,7 @@ export default function CivicGamification({ user, reports = [], leaderboard }: C
       title: 'Road Hero 🏆',
       desc: 'Submit 5 or more hazard reports to help clear roadways.',
       icon: '🚧',
-      unlocked: currentUserStats.reportCount >= 5,
+      unlocked: (currentUserStats?.reportCount || 0) >= 5,
       points: 250,
     },
     {
@@ -109,7 +109,7 @@ export default function CivicGamification({ user, reports = [], leaderboard }: C
       title: 'Civic Sentinel 🌟',
       desc: 'Amplify civic issues by garnering 15 or more community confirmations/upvotes.',
       icon: '🌟',
-      unlocked: currentUserStats.upvoteCount >= 15,
+      unlocked: (currentUserStats?.upvoteCount || 0) >= 15,
       points: 150,
     },
     {
@@ -117,7 +117,7 @@ export default function CivicGamification({ user, reports = [], leaderboard }: C
       title: 'Clean City Champion 💪',
       desc: 'Cross 200 total Hero Points to claim the crown.',
       icon: '💪',
-      unlocked: currentUserStats.points >= 200,
+      unlocked: (currentUserStats?.points || 0) >= 200,
       points: 300,
     }
   ];
@@ -130,36 +130,36 @@ export default function CivicGamification({ user, reports = [], leaderboard }: C
         <div className="flex items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <div className="w-12 h-12 rounded-xl bg-gradient-to-tr from-indigo-500 to-indigo-600 flex items-center justify-center font-display font-black text-white text-lg shadow-inner">
-              {currentName.substring(0, 2).toUpperCase()}
+              {(currentName || 'Citizen').substring(0, 2).toUpperCase()}
             </div>
             <div className="flex flex-col">
               <div className="flex items-center gap-1.5">
                 <span className="font-display font-bold text-sm text-white">{currentName}</span>
                 <span className="bg-indigo-950 text-indigo-300 border border-indigo-900/60 font-bold text-[8px] px-1.5 py-0.5 rounded font-mono uppercase tracking-wider">
-                  Level {Math.max(1, Math.floor(currentUserStats.points / 300) + 1)} Ward Sentinel
+                  Level {Math.max(1, Math.floor((currentUserStats?.points || 0) / 300) + 1)} Ward Sentinel
                 </span>
               </div>
-              <span className="text-[10px] text-indigo-200">{currentUserStats.badges[0] || 'Civic Scout'}</span>
+              <span className="text-[10px] text-indigo-200">{(currentUserStats?.badges || [])[0] || 'Civic Scout'}</span>
             </div>
           </div>
 
           <div className="text-right">
             <span className="text-[9px] uppercase tracking-wider text-indigo-300 font-mono font-bold block">Current Score</span>
-            <span className="text-2xl font-black font-mono tracking-tight text-white">{currentUserStats.points.toLocaleString()} <span className="text-[10px] text-indigo-300">PTS</span></span>
+            <span className="text-2xl font-black font-mono tracking-tight text-white">{(currentUserStats?.points || 0).toLocaleString()} <span className="text-[10px] text-indigo-300">PTS</span></span>
           </div>
         </div>
 
         {/* Level progress bar */}
         <div className="flex flex-col gap-1.5 mt-1 border-t border-slate-800 pt-3">
           <div className="flex justify-between text-[10px] text-slate-400 font-mono">
-            <span>Next Rank: {currentUserStats.points >= 1500 ? 'Master Warden' : 'Civic Guardian'}</span>
-            <span>{currentUserStats.points % 300} / 300 PTS</span>
+            <span>Next Rank: {(currentUserStats?.points || 0) >= 1500 ? 'Master Warden' : 'Civic Guardian'}</span>
+            <span>{(currentUserStats?.points || 0) % 300} / 300 PTS</span>
           </div>
           <div className="w-full bg-slate-950 rounded-full h-2 overflow-hidden border border-slate-800">
-            <div className="bg-gradient-to-r from-indigo-500 to-indigo-400 h-2 rounded-full" style={{ width: `${Math.min(100, ((currentUserStats.points % 300) / 300) * 100)}%` }} />
+            <div className="bg-gradient-to-r from-indigo-500 to-indigo-400 h-2 rounded-full" style={{ width: `${Math.min(100, (((currentUserStats?.points || 0) % 300) / 300) * 100)}%` }} />
           </div>
           <p className="text-[9px] text-slate-400 italic">
-            🎉 You need {300 - (currentUserStats.points % 300)} PTS to rank up! Reporting new active hazards earns you +50 PTS.
+            🎉 You need {300 - ((currentUserStats?.points || 0) % 300)} PTS to rank up! Reporting new active hazards earns you +50 PTS.
           </p>
         </div>
       </div>
@@ -175,32 +175,32 @@ export default function CivicGamification({ user, reports = [], leaderboard }: C
           </h3>
 
           <div className="flex flex-col gap-2.5">
-            {achievements.map((item) => (
+            {(achievements || []).map((item) => (
               <div
-                key={item.id}
+                key={item?.id || Math.random().toString()}
                 className={`p-3 rounded-xl border flex items-center justify-between gap-3.5 transition-all ${
-                  item.unlocked
+                  item?.unlocked
                     ? 'bg-white border-gray-100 shadow-sm'
                     : 'bg-slate-50/50 border-gray-100 opacity-60 select-none'
                 }`}
               >
                 <div className="flex items-center gap-3">
-                  <span className="text-2xl filter drop-shadow-sm shrink-0">{item.icon}</span>
+                  <span className="text-2xl filter drop-shadow-sm shrink-0">{item?.icon || '🌟'}</span>
                   <div className="flex flex-col gap-0.5 min-w-0">
                     <span className="font-semibold text-gray-800 text-xs flex items-center gap-1.5">
-                      {item.title}
-                      {item.unlocked && (
+                      {item?.title || 'Achievement'}
+                      {item?.unlocked && (
                         <span className="bg-emerald-50 text-emerald-600 border border-emerald-100 font-bold text-[8px] px-1.5 py-0.2 rounded uppercase">
                           Unlocked
                         </span>
                       )}
                     </span>
-                    <p className="text-[10px] text-gray-400 leading-tight">{item.desc}</p>
+                    <p className="text-[10px] text-gray-400 leading-tight">{item?.desc || ''}</p>
                   </div>
                 </div>
 
                 <span className="text-[10px] font-mono font-bold text-indigo-600 bg-indigo-50/80 border border-indigo-100 px-2 py-0.5 rounded shrink-0">
-                  +{item.points} PTS
+                  +{item?.points || 0} PTS
                 </span>
               </div>
             ))}
@@ -215,12 +215,12 @@ export default function CivicGamification({ user, reports = [], leaderboard }: C
           </h3>
 
           <div className="bg-white rounded-xl border border-gray-100 p-4 shadow-sm flex flex-col gap-3">
-            {leaderboardData.slice(0, 8).map((userItem, index) => {
+            {(leaderboardData || []).slice(0, 8).map((userItem, index) => {
               const rank = index + 1;
-              const isActive = userItem.name === currentName;
+              const isActive = userItem?.name === currentName;
               return (
                 <div
-                  key={userItem.name}
+                  key={userItem?.name || `user-${index}`}
                   className={`flex items-center justify-between gap-3 py-1.5 border-b last:border-0 border-gray-50 ${
                     isActive ? 'bg-indigo-50/30 -mx-3 px-3 rounded-lg border-b-transparent' : ''
                   }`}
@@ -236,15 +236,15 @@ export default function CivicGamification({ user, reports = [], leaderboard }: C
                       #{rank}
                     </span>
                     <div className="flex flex-col gap-0.5 min-w-0">
-                      <span className="font-semibold text-gray-800 text-xs truncate">{userItem.name}</span>
+                      <span className="font-semibold text-gray-800 text-xs truncate">{userItem?.name || 'Anonymous'}</span>
                       <span className="text-[9px] text-gray-400 font-medium">
-                        {userItem.badges[0] || 'Civic Scout'}
+                        {(userItem?.badges || [])[0] || 'Civic Scout'}
                       </span>
                     </div>
                   </div>
 
                   <span className="text-[10px] font-mono font-black text-gray-700 shrink-0">
-                    {userItem.points.toLocaleString()} pts
+                    {(userItem?.points || 0).toLocaleString()} pts
                   </span>
                 </div>
               );

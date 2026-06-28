@@ -17,39 +17,48 @@ export default function HomeDashboard({
   onNavigateToReport,
   onNavigateToTracking
 }: HomeDashboardProps) {
+  if (!reports) {
+    return (
+      <div className="flex flex-col items-center justify-center p-12 text-slate-400 gap-3 border border-dashed border-slate-200 rounded-2xl min-h-[300px]">
+        <Clock className="w-8 h-8 animate-spin text-indigo-500" />
+        <p className="text-xs font-mono">Synchronizing civic ledger telemetry...</p>
+      </div>
+    );
+  }
+
   // Calculate metrics based strictly on live data payload
-  const resolvedCount = reports.filter(r => {
-    const s = r.status as string;
+  const resolvedCount = (reports || []).filter(r => {
+    const s = (r?.status || "") as string;
     return s === 'CLOSED_VERIFIED' || s === 'Fixed' || s === 'RESOLVED';
   }).length;
-  const inProgressCount = reports.filter(r => {
-    const s = r.status as string;
+  const inProgressCount = (reports || []).filter(r => {
+    const s = (r?.status || "") as string;
     return s === 'VERIFIED' || s === 'DISPATCHED' || s === 'Assigned' || s === 'Repair Started';
   }).length;
-  const reportedTodayCount = reports.filter(r => {
-    if (!r.createdAt) return false;
+  const reportedTodayCount = (reports || []).filter(r => {
+    if (!r?.createdAt) return false;
     return r.createdAt.split('T')[0] === new Date().toISOString().split('T')[0];
   }).length;
 
   // Filter My Reports dynamically: map reports array using allReports.filter(report => report.reporterEmail === currentUser.email)
-  const myReports = reports.filter(r => {
+  const myReports = (reports || []).filter(r => {
     if (!user?.email) return false;
-    return r.reporterEmail === user.email;
+    return r?.reporterEmail === user.email;
   }).slice(0, 5);
 
   const displayUserName = user?.displayName || user?.email?.split('@')[0] || 'Citizen';
 
   // Find top category (mode) within active report stack
   let topCategory = 'infrastructure';
-  if (reports.length > 0) {
-    const counts = reports.reduce((acc, r) => {
-      const cat = r.category || 'other';
+  if ((reports || []).length > 0) {
+    const counts = (reports || []).reduce((acc, r) => {
+      const cat = r?.category || 'other';
       acc[cat] = (acc[cat] || 0) + 1;
       return acc;
     }, {} as Record<string, number>);
 
     let maxCount = -1;
-    Object.entries(counts).forEach(([cat, count]) => {
+    Object.entries(counts || {}).forEach(([cat, count]) => {
       if (count > maxCount) {
         maxCount = count;
         topCategory = cat;
@@ -127,29 +136,31 @@ export default function HomeDashboard({
             Recent Community Activity
           </h3>
           <div className="flex flex-col gap-3">
-            {reports.slice(0, 3).map((report) => (
+            {(reports || []).slice(0, 3).map((report) => (
               <div 
-                key={report.id}
+                key={report?.id || Math.random().toString()}
                 onClick={() => {
-                  onSelectReport(report);
-                  onNavigateToTracking();
+                  if (report) {
+                    onSelectReport(report);
+                    onNavigateToTracking();
+                  }
                 }}
                 className="bg-white p-3.5 rounded-xl border border-gray-100 shadow-sm hover:border-indigo-100 hover:shadow-md transition-all cursor-pointer flex items-center gap-3"
               >
                 <img 
-                  src={report.imageUrl} 
-                  alt={report.category} 
+                  src={report?.imageUrl || ''} 
+                  alt={report?.category || 'other'} 
                   className="w-12 h-12 rounded-lg object-cover bg-slate-100" 
                   referrerPolicy="no-referrer"
                 />
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-1.5">
                     <span className="text-[9px] uppercase font-bold px-1.5 py-0.2 rounded bg-slate-100 text-slate-700">
-                      {report.category}
+                      {report?.category || 'other'}
                     </span>
-                    <span className="text-[9px] text-gray-400 font-mono">{report.ward}</span>
+                    <span className="text-[9px] text-gray-400 font-mono">{report?.ward || 'Unknown'}</span>
                   </div>
-                  <p className="text-xs text-gray-700 font-medium truncate mt-1">{report.description}</p>
+                  <p className="text-xs text-gray-700 font-medium truncate mt-1">{report?.description || 'No description'}</p>
                 </div>
               </div>
             ))}
@@ -163,33 +174,35 @@ export default function HomeDashboard({
             My Reports Dashboard
           </h3>
           <div className="flex flex-col gap-3">
-            {myReports.length > 0 ? (
-              myReports.map((report) => (
+            {(myReports || []).length > 0 ? (
+              (myReports || []).map((report) => (
                 <div 
-                  key={report.id}
+                  key={report?.id || Math.random().toString()}
                   onClick={() => {
-                    onSelectReport(report);
-                    onNavigateToTracking();
+                    if (report) {
+                      onSelectReport(report);
+                      onNavigateToTracking();
+                    }
                   }}
                   className="bg-white p-3.5 rounded-xl border border-emerald-50 shadow-sm hover:border-emerald-200 hover:shadow-md transition-all cursor-pointer flex flex-col gap-2"
                 >
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-semibold text-gray-800 truncate max-w-[150px]">
-                      {report.category === 'pothole' ? 'Pothole near Metro' : `${report.category} at ${report.ward}`}
+                      {report?.category === 'pothole' ? 'Pothole near Metro' : `${report?.category || 'other'} at ${report?.ward || 'Unknown'}`}
                     </span>
                     <span className={`text-[9px] font-bold uppercase px-2 py-0.5 rounded ${
-                      report.status === 'RESOLVED' || report.status === 'CLOSED_VERIFIED'
+                      report?.status === 'RESOLVED' || report?.status === 'CLOSED_VERIFIED'
                         ? 'bg-emerald-50 text-emerald-700 border border-emerald-100'
                         : 'bg-amber-50 text-amber-700 border border-amber-100'
                     }`}>
-                      {report.status === 'DISPATCHED' ? 'Repair Started' : report.status === 'RESOLVED' ? 'Fixed' : report.status}
+                      {report?.status === 'DISPATCHED' ? 'Repair Started' : report?.status === 'RESOLVED' ? 'Fixed' : report?.status || 'PENDING'}
                     </span>
                   </div>
                   <div className="flex justify-between items-center text-[10px] text-gray-400 font-mono mt-0.5">
-                    <span>Reported on {new Date(report.createdAt).toLocaleDateString()}</span>
+                    <span>Reported on {report?.createdAt ? new Date(report.createdAt).toLocaleDateString() : 'N/A'}</span>
                     <span className="text-indigo-600 font-semibold flex items-center gap-0.5">
                       <ThumbsUp className="w-3 h-3" />
-                      {report.upvotes || 0} Community Confirmations
+                      {report?.upvotes || 0} Community Confirmations
                     </span>
                   </div>
                 </div>
