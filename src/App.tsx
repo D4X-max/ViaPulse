@@ -671,7 +671,7 @@ export default function App() {
                   transition={{ duration: 0.2 }}
                   className="h-full overflow-y-auto pr-1"
                 >
-                  <AnalyticsDashboard reports={reports} />
+                  <AnalyticsDashboard reports={reports} userRole={userRole} />
                 </motion.div>
               )}
             </AnimatePresence>
