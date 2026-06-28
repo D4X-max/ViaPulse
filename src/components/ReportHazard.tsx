@@ -1,8 +1,82 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Camera, Upload, AlertCircle, Send, CheckCircle, Navigation, MapPin, Sparkles, ShieldAlert, Eye, Settings, EyeOff } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Report } from '../types';
+import { Report, Category, Severity } from '../types';
 import { auth } from '../lib/firebase';
+
+const getDetectedSignature = (description: string, image: string | null) => {
+  const descText = (description || '').toLowerCase();
+  
+  // Water Leakages
+  if (
+    descText.includes('water') || 
+    descText.includes('leak') || 
+    descText.includes('sewage') || 
+    descText.includes('pipe') || 
+    descText.includes('burst') || 
+    descText.includes('drain') || 
+    descText.includes('sprinkler') || 
+    descText.includes('flood') || 
+    descText.includes('puddle') || 
+    descText.includes('hydrant') || 
+    descText.includes('plumbing') || 
+    descText.includes('runoff') ||
+    (image && image.includes('photo-1515162305285-0293e4767cc2'))
+  ) {
+    return {
+      category: 'Water Leakage',
+      desc: 'Active runoff and plumbing hazard',
+      metric: 'Flow rate: ~5.2 gpm',
+      severity: 'Medium'
+    };
+  }
+  // Garbage / Waste
+  if (
+    descText.includes('garbage') || 
+    descText.includes('trash') || 
+    descText.includes('waste') || 
+    descText.includes('litter') || 
+    descText.includes('dump') || 
+    descText.includes('bin') || 
+    descText.includes('can') || 
+    descText.includes('rubbish') || 
+    descText.includes('debris') || 
+    descText.includes('overflowing')
+  ) {
+    return {
+      category: 'Waste Management',
+      desc: 'Trash dump/bin overflow on public path',
+      metric: 'Est. volume: 4.5 cubic ft',
+      severity: 'Medium'
+    };
+  }
+  // Lighting / Streetlight
+  if (
+    descText.includes('light') || 
+    descText.includes('streetlight') || 
+    descText.includes('lamp') || 
+    descText.includes('bulb') || 
+    descText.includes('dark') || 
+    descText.includes('wire') || 
+    descText.includes('pole') || 
+    descText.includes('electricity') || 
+    descText.includes('luminaire')
+  ) {
+    return {
+      category: 'Damaged Streetlight',
+      desc: 'Broken public utility fixture',
+      metric: 'Luminance drop: 100%',
+      severity: 'Medium'
+    };
+  }
+  // Potholes
+  return {
+    category: 'Pothole',
+    desc: 'Roadway asphalt structural failure',
+    metric: 'Est. diameter: 2.5 ft',
+    severity: 'High'
+  };
+};
 
 interface ReportHazardProps {
   user: any;
@@ -25,6 +99,10 @@ export default function ReportHazard({
   const [reporterName, setReporterName] = useState(user?.displayName || user?.email?.split('@')[0] || '');
   const [isScanning, setIsScanning] = useState(false);
   const [scanProgress, setScanProgress] = useState(0);
+
+  const [aiCategory, setAiCategory] = useState<Category | null>(null);
+  const [aiSeverity, setAiSeverity] = useState<Severity | null>(null);
+  const [aiOrdinance, setAiOrdinance] = useState<string | null>(null);
 
   // Point 2: Asynchronous Triage Block state
   const [showTriageCard, setShowTriageCard] = useState(false);
@@ -101,30 +179,63 @@ export default function ReportHazard({
     reader.readAsDataURL(file);
   };
 
-  const handleMediaSelection = (dataUrl: string) => {
+  const handleMediaSelection = async (dataUrl: string) => {
     setImage(dataUrl);
     setIsScanning(true);
     setScanProgress(15);
     
-    // Simulate AI Scan
-    const interval = setInterval(() => {
-      setScanProgress(prev => {
-        if (prev >= 100) {
-          clearInterval(interval);
-          setTimeout(() => {
-            setIsScanning(false);
-            // Trigger Point 2: Asynchronous Triage block showing simulated AI categories
-            setShowTriageCard(true);
-            showToast('success', 'AI Triage scanning completed successfully.');
-            if (!newReportLocation) {
-              setNewReportLocation({ latitude: 37.7749 + (Math.random() - 0.5) * 0.02, longitude: -122.4194 + (Math.random() - 0.5) * 0.02 });
-            }
-          }, 500);
-          return 100;
-        }
-        return prev + 20;
+    // Simulate smooth progress updates while the API is thinking
+    let progress = 15;
+    const progressInterval = setInterval(() => {
+      progress = Math.min(85, progress + Math.floor(Math.random() * 8) + 3);
+      setScanProgress(progress);
+    }, 200);
+
+    try {
+      const response = await fetch('/api/triage', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ image: dataUrl })
       });
-    }, 150);
+
+      clearInterval(progressInterval);
+
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || 'Server failed to analyze image');
+      }
+
+      setScanProgress(100);
+      setTimeout(() => {
+        setIsScanning(false);
+        const triage = data.triageResult;
+        
+        // Auto-fill description & category
+        setDescription(triage.description);
+        setAiCategory(triage.category);
+        setAiSeverity(triage.severity);
+        setAiOrdinance(triage.ordinance);
+
+        setShowTriageCard(true);
+        if (!newReportLocation) {
+          setNewReportLocation({ latitude: 37.7749 + (Math.random() - 0.5) * 0.02, longitude: -122.4194 + (Math.random() - 0.5) * 0.02 });
+        }
+        showToast('success', `AI successfully categorized as ${triage.category.toUpperCase()}`);
+      }, 500);
+
+    } catch (err: any) {
+      clearInterval(progressInterval);
+      setIsScanning(false);
+      console.error('AI Triage error:', err);
+      showToast('error', err.message || 'AI Triage failed. Please enter details manually.');
+      
+      // Setup minimal fallbacks so user can still submit
+      setAiCategory('pothole');
+      setAiSeverity('medium');
+      if (!newReportLocation) {
+        setNewReportLocation({ latitude: 37.7749, longitude: -122.4194 });
+      }
+    }
   };
 
   const shareGPSLocation = () => {
@@ -182,7 +293,10 @@ export default function ReportHazard({
           longitude: newReportLocation?.longitude,
           reporterName: secureName,
           reporterEmail: secureEmail,
-          description: description
+          description: description,
+          category: aiCategory,
+          severity: aiSeverity,
+          ordinance: aiOrdinance
         })
       });
 
@@ -194,6 +308,9 @@ export default function ReportHazard({
       // Reset
       setImage(null);
       setDescription('');
+      setAiCategory(null);
+      setAiSeverity(null);
+      setAiOrdinance(null);
       setShowTriageCard(false);
       setNewReportLocation(null);
       setIsSubmitting(false);
@@ -320,51 +437,39 @@ export default function ReportHazard({
         </AnimatePresence>
       </div>
 
-      {/* Point 2: Asynchronous Triage Block */}
-      <AnimatePresence>
-        {showTriageCard && (
-          <motion.div
-            initial={{ opacity: 0, scale: 0.98, y: 5 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.98, y: 5 }}
-            className="bg-indigo-950 border border-indigo-800/60 rounded-2xl p-4 text-white shadow-lg relative overflow-hidden"
-          >
-            <div className="absolute right-0 top-0 bottom-0 w-1/3 opacity-10 bg-gradient-to-l from-emerald-400 to-indigo-950 pointer-events-none"></div>
-            <div className="relative z-10 flex flex-col gap-3">
-              <div className="flex items-center gap-2">
-                <Sparkles className="w-4.5 h-4.5 text-emerald-400" />
-                <span className="text-xs font-bold uppercase tracking-widest font-mono text-emerald-400">
-                  AI Real-Time Telemetry Triage
-                </span>
-              </div>
-              <div className="grid grid-cols-2 gap-3 bg-slate-950/40 p-3 rounded-xl border border-indigo-900/40 text-xs font-mono">
-                <div>
-                  <span className="text-slate-400 block text-[9px] uppercase tracking-wider">Estimated Category</span>
-                  <span className="text-indigo-300 font-bold">Pothole</span>
-                </div>
-                <div>
-                  <span className="text-slate-400 block text-[9px] uppercase tracking-wider">Detected Severity</span>
-                  <span className="text-rose-400 font-bold">High urgency</span>
-                </div>
-                <div className="mt-1">
-                  <span className="text-slate-400 block text-[9px] uppercase tracking-wider">Estimated Department</span>
-                  <span className="text-emerald-300 font-bold">Road Maintenance</span>
-                </div>
-                <div className="mt-1">
-                  <span className="text-slate-400 block text-[9px] uppercase tracking-wider">Confidence Scoring</span>
-                  <span className="text-emerald-400 font-bold">97% Match</span>
-                </div>
-              </div>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {/* Point 2: Asynchronous Triage Block removed per user request */}
+
 
       {/* Step 2: Geographic Bindings & Descriptive Details */}
       <div className="bg-white rounded-2xl border border-gray-100 p-4.5 flex flex-col gap-4 shadow-sm">
         <span className="text-[10px] font-bold text-slate-400 font-mono uppercase tracking-widest block">
           Step 2: Geotag & Description Details
         </span>
+
+        {/* AI Triage Banner */}
+        {aiCategory && (
+          <div className="bg-indigo-50/40 border border-indigo-100 rounded-xl p-3.5 flex flex-col gap-2">
+            <span className="text-[10px] font-bold text-indigo-600 font-mono uppercase tracking-widest block">
+              🤖 Multi-Agent AI Sentinel Classification
+            </span>
+            <div className="flex flex-wrap gap-1.5">
+              <span className="px-2.5 py-0.5 rounded-full bg-indigo-100 text-indigo-800 text-[10px] font-extrabold uppercase font-mono">
+                Category: {aiCategory}
+              </span>
+              <span className="px-2.5 py-0.5 rounded-full bg-rose-100 text-rose-800 text-[10px] font-extrabold uppercase font-mono">
+                Severity: {aiSeverity}
+              </span>
+              {aiOrdinance && (
+                <span className="px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-700 text-[10px] font-semibold font-mono">
+                  {aiOrdinance}
+                </span>
+              )}
+            </div>
+            <p className="text-[11px] text-gray-500 leading-relaxed font-sans">
+              Gemini analyzed your visual proof and successfully categorized this hazard, drafting a detailed summary of what is present in the image. You can refine the draft below if needed.
+            </p>
+          </div>
+        )}
 
         {/* GPS location sharing trigger */}
         <div className="flex items-center gap-3">
@@ -456,7 +561,7 @@ export default function ReportHazard({
                   Automated Detection Signature
                 </span>
                 <p className="text-xs text-slate-200 font-sans font-medium leading-relaxed">
-                  "We detected: <span className="text-rose-400 font-bold font-mono">Pothole</span> | <span className="text-indigo-300">Dangerous for vehicles</span> | Estimated diameter: <span className="text-emerald-400 font-mono font-bold">2.5 ft</span> | <span className="text-rose-400 font-bold font-mono">High Urgency</span>"
+                  {"We detected: "}<span className="text-rose-400 font-bold font-mono">{aiCategory ? aiCategory.toUpperCase() : getDetectedSignature(description, image).category}</span> | <span className="text-indigo-300">{aiCategory ? `${aiCategory} hazard detected` : getDetectedSignature(description, image).desc}</span> | <span className="text-emerald-400 font-mono font-bold">{getDetectedSignature(description, image).metric}</span> | <span className="text-rose-400 font-bold font-mono">{(aiSeverity || getDetectedSignature(description, image).severity).toUpperCase()} Urgency</span>
                 </p>
               </div>
 

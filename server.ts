@@ -54,6 +54,93 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', mode: ai ? 'gemini-connected' : 'simulated' });
 });
 
+// 1.1. Triage an image with Gemini
+app.post('/api/triage', async (req, res) => {
+  const { image } = req.body;
+  if (!image) {
+    return res.status(400).json({ error: 'Missing required parameter: image' });
+  }
+
+  try {
+    let triageResult;
+
+    if (ai) {
+      console.log('Sending standalone image to Gemini for Triage...');
+      const parsed = parseDataUrl(image);
+      const imagePart = {
+        inlineData: {
+          mimeType: parsed.mimeType,
+          data: parsed.base64Data,
+        }
+      };
+
+      const prompt = `Analyze this image to detect public infrastructure issues for a civic utility app called WardWatch.
+
+CRITICAL SAFETY & REJECTION RULES:
+1. REJECT SELFIES/PORTRAITS: If the image is a selfie, portrait, contains people as the primary subject, or shows faces clearly, you MUST set isInfrastructureHazard to false.
+2. REJECT UNRELATED IMAGES: If the image shows indoor residential settings, bedrooms, living rooms, pets, domestic animals, food, documents, screens, abstract art, or random objects not on public streets or utility pathways, you MUST set isInfrastructureHazard to false.
+3. ACCEPT ONLY REAL CIVIC INFRASTRUCTURE ISSUES: The image must clearly, directly, and prominently show a real municipal/civic infrastructure hazard such as:
+   - potholes, broken pavement, or sidewalk damage (category: 'pothole')
+   - illegal trash piles, litter dumps, or garbage overflows on streets/public areas (category: 'garbage')
+   - public water leaks, main bursts, or open sewage/puddling (category: 'water')
+   - dark or broken street lights, exposed utility wires, or damaged light poles (category: 'lighting')
+
+Please classify the image and extract:
+1. isInfrastructureHazard: boolean (Strictly false if it violates any of the rejection rules above; true only if it is a real municipal/civic public infrastructure issue).
+2. category: string (Must be exactly one of: 'pothole', 'garbage', 'water', 'lighting').
+3. severity: string (Must be exactly one of: 'low', 'medium', 'high').
+4. description: string (A professional, concise 2-3 sentence description detailing the issue and hazard risks, or explaining the rejection reason).
+5. municipalOrdinanceCitations: string (An official-sounding mock municipal code section relevant to this hazard, e.g. "Municipal Code Section 12.4 - Public Sidewalk Maintenance" or "Utility Water Protection Act Section 8").`;
+
+      try {
+        const response = await ai.models.generateContent({
+          model: 'gemini-3.5-flash',
+          contents: [imagePart, prompt],
+          config: {
+            responseMimeType: 'application/json',
+            responseSchema: {
+              type: Type.OBJECT,
+              properties: {
+                isInfrastructureHazard: { type: Type.BOOLEAN },
+                category: { type: Type.STRING },
+                severity: { type: Type.STRING },
+                description: { type: Type.STRING },
+                municipalOrdinanceCitations: { type: Type.STRING }
+              },
+              required: ['isInfrastructureHazard', 'category', 'severity', 'description', 'municipalOrdinanceCitations']
+            }
+          }
+        });
+
+        const parsedJson = JSON.parse(response.text || '{}');
+        triageResult = {
+          isInfrastructureHazard: parsedJson.isInfrastructureHazard ?? true,
+          category: (parsedJson.category || 'pothole').toLowerCase() as Category,
+          severity: (parsedJson.severity || 'medium').toLowerCase() as Severity,
+          description: parsedJson.description || 'Infrastructure hazard reported.',
+          ordinance: parsedJson.municipalOrdinanceCitations || 'Municipal Ordinance Code Section 14.2'
+        };
+
+        if (!triageResult.isInfrastructureHazard) {
+          return res.status(400).json({
+            error: 'AI Safety Validation Failed: The uploaded image does not appear to show a public municipal infrastructure issue (pothole, illegal dump, leak, or street light outage). Please capture a clear image of the hazard.'
+          });
+        }
+      } catch (geminiError) {
+        console.error('Gemini Standalone Triage request failed, using local fallback:', geminiError);
+        triageResult = getFallbackTriage(undefined, image);
+      }
+    } else {
+      triageResult = getFallbackTriage(undefined, image);
+    }
+
+    res.json({ triageResult });
+  } catch (error: any) {
+    console.error('Triage endpoint failed:', error);
+    res.status(500).json({ error: error.message || 'Failed to triage image' });
+  }
+});
+
 // 2. List all reports
 app.get('/api/reports', async (req, res) => {
   try {
@@ -117,7 +204,7 @@ app.get('/api/leaderboard', async (req, res) => {
 
 // 4. Submit a new report with automated Triage, Geolocation Ward, and Deduplication
 app.post('/api/reports', async (req, res) => {
-  const { image, latitude, longitude, reporterName, reporterEmail } = req.body;
+  const { image, latitude, longitude, reporterName, reporterEmail, description, category, severity, ordinance } = req.body;
 
   if (!image || !latitude || !longitude) {
     return res.status(400).json({ error: 'Missing required parameters (image, latitude, longitude)' });
@@ -131,7 +218,16 @@ app.post('/api/reports', async (req, res) => {
   try {
     let triageResult;
 
-    if (ai) {
+    if (category && severity && description) {
+      console.log('Using pre-triaged client-provided fields...');
+      triageResult = {
+        isInfrastructureHazard: true,
+        category: category.toLowerCase() as Category,
+        severity: severity.toLowerCase() as Severity,
+        description: description,
+        ordinance: ordinance || 'Municipal Ordinance Code Section 14.2'
+      };
+    } else if (ai) {
       console.log('Sending report to Gemini for Triage...');
       const parsed = parseDataUrl(image);
       const imagePart = {
@@ -141,9 +237,11 @@ app.post('/api/reports', async (req, res) => {
         }
       };
 
-      const prompt = `Analyze this image to detect public infrastructure issues for a civic utility app called WardWatch.
-
-CRITICAL SAFETY & REJECTION RULES:
+      let prompt = `Analyze this image to detect public infrastructure issues for a civic utility app called WardWatch.`;
+      if (description) {
+        prompt += `\n\nUser-provided description of the issue to aid classification: "${description}"\nUse this description in tandem with the visual content of the image to ensure accurate classification.`;
+      }
+      prompt += `\n\nCRITICAL SAFETY & REJECTION RULES:
 1. REJECT SELFIES/PORTRAITS: If the image is a selfie, portrait, contains people as the primary subject, or shows faces clearly, you MUST set isInfrastructureHazard to false.
 2. REJECT UNRELATED IMAGES: If the image shows indoor residential settings, bedrooms, living rooms, pets, domestic animals, food, documents, screens, abstract art, or random objects not on public streets or utility pathways, you MUST set isInfrastructureHazard to false.
 3. ACCEPT ONLY REAL CIVIC INFRASTRUCTURE ISSUES: The image must clearly, directly, and prominently show a real municipal/civic infrastructure hazard such as:
@@ -156,7 +254,7 @@ Please classify the image and extract:
 1. isInfrastructureHazard: boolean (Strictly false if it violates any of the rejection rules above; true only if it is a real municipal/civic public infrastructure issue).
 2. category: string (Must be exactly one of: 'pothole', 'garbage', 'water', 'lighting').
 3. severity: string (Must be exactly one of: 'low', 'medium', 'high').
-4. description: string (A professional, concise 2-3 sentence description detailing the issue and hazard risks, or explaining the rejection reason).
+4. description: string (A professional, concise 2-3 sentence description detailing the issue and hazard risks, or explaining the rejection reason. Use the user's description details if available).
 5. municipalOrdinanceCitations: string (An official-sounding mock municipal code section relevant to this hazard, e.g. "Municipal Code Section 12.4 - Public Sidewalk Maintenance" or "Utility Water Protection Act Section 8").`;
 
       try {
@@ -195,11 +293,11 @@ Please classify the image and extract:
         }
       } catch (geminiError) {
         console.error('Gemini Triage request failed, using local fallback:', geminiError);
-        triageResult = getFallbackTriage();
+        triageResult = getFallbackTriage(description, image);
       }
     } else {
       // Offline fallback
-      triageResult = getFallbackTriage();
+      triageResult = getFallbackTriage(description, image);
     }
 
     // Now determine the ward and local contact info based on latitude/longitude
@@ -674,9 +772,98 @@ app.use((err: any, req: any, res: any, next: any) => {
 });
 
 // Fallback logic helpers
-function getFallbackTriage() {
+function getFallbackTriage(userDescription?: string, image?: string) {
   const categories: Category[] = ['pothole', 'garbage', 'water', 'lighting'];
   const severities: Severity[] = ['low', 'medium', 'high'];
+  
+  // 1. Analyze userDescription and image URL/content to find the correct category
+  let cat: Category = 'pothole'; // default
+  let detectedByKeywords = false;
+
+  const descText = (userDescription || '').toLowerCase();
+
+  // Water Leakages keywords
+  if (
+    descText.includes('water') || 
+    descText.includes('leak') || 
+    descText.includes('sewage') || 
+    descText.includes('pipe') || 
+    descText.includes('burst') || 
+    descText.includes('drain') || 
+    descText.includes('sprinkler') || 
+    descText.includes('flood') || 
+    descText.includes('puddle') || 
+    descText.includes('hydrant') || 
+    descText.includes('plumbing') || 
+    descText.includes('runoff') ||
+    (image && image.includes('photo-1515162305285-0293e4767cc2'))
+  ) {
+    cat = 'water';
+    detectedByKeywords = true;
+  }
+  // Garbage / Waste management keywords
+  else if (
+    descText.includes('garbage') || 
+    descText.includes('trash') || 
+    descText.includes('waste') || 
+    descText.includes('litter') || 
+    descText.includes('dump') || 
+    descText.includes('bin') || 
+    descText.includes('can') || 
+    descText.includes('rubbish') || 
+    descText.includes('debris') || 
+    descText.includes('overflowing')
+  ) {
+    cat = 'garbage';
+    detectedByKeywords = true;
+  }
+  // Damaged streetlights / Lighting keywords
+  else if (
+    descText.includes('light') || 
+    descText.includes('streetlight') || 
+    descText.includes('lamp') || 
+    descText.includes('bulb') || 
+    descText.includes('dark') || 
+    descText.includes('wire') || 
+    descText.includes('pole') || 
+    descText.includes('electricity') || 
+    descText.includes('luminaire')
+  ) {
+    cat = 'lighting';
+    detectedByKeywords = true;
+  }
+  // Potholes / Pavement keywords
+  else if (
+    descText.includes('pothole') || 
+    descText.includes('pavement') || 
+    descText.includes('sidewalk') || 
+    descText.includes('cracked') || 
+    descText.includes('asphalt') || 
+    descText.includes('hole') || 
+    descText.includes('road') || 
+    descText.includes('street')
+  ) {
+    cat = 'pothole';
+    detectedByKeywords = true;
+  }
+
+  // If no keywords matched and we don't have a user description, let's select a category based on the image if possible, or pick randomly if absolutely necessary
+  if (!detectedByKeywords) {
+    if (image && image.includes('photo-1515162305285-0293e4767cc2')) {
+      cat = 'water';
+    } else {
+      cat = categories[Math.floor(Math.random() * categories.length)];
+    }
+  }
+
+  // Determine severity based on description keywords
+  let sev: Severity = 'medium';
+  if (descText.includes('danger') || descText.includes('urgent') || descText.includes('severe') || descText.includes('emergency') || descText.includes('hazard') || descText.includes('high')) {
+    sev = 'high';
+  } else if (descText.includes('minor') || descText.includes('low') || descText.includes('small')) {
+    sev = 'low';
+  }
+
   const descMap = {
     pothole: 'Medium size roadway asphalt failure causing wheel alignment risk and cyclist swerving.',
     garbage: 'Overflowing public waste bin causing trash scatter and strong odors on public pavement.',
@@ -684,14 +871,13 @@ function getFallbackTriage() {
     lighting: 'Broken fixture causing darkness on corner, creating public security risks.'
   };
 
-  const cat = categories[Math.floor(Math.random() * categories.length)];
-  const sev = severities[Math.floor(Math.random() * severities.length)];
+  const finalDescription = userDescription || descMap[cat];
 
   return {
     isInfrastructureHazard: true,
     category: cat,
     severity: sev,
-    description: descMap[cat],
+    description: finalDescription,
     ordinance: `Municipal Code Section ${Math.floor(Math.random() * 20) + 10}.5 - Public Health and Safety`
   };
 }

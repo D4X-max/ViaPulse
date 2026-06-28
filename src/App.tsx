@@ -444,7 +444,7 @@ export default function App() {
                   }`}
                 >
                   <Award className="w-3.5 h-3.5 text-amber-500" />
-                  <span>Sentinels League</span>
+                  <span>Leaderboard</span>
                 </button>
               </>
             )}
