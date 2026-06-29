@@ -143,12 +143,17 @@ export default function TrackingHub({
     setActiveCommentReportId(null);
   };
 
-  const mockTimeline = [
-    { time: '10:20 AM', title: 'Issue Reported', desc: 'Symmetric pixel triage complete. Sent as priority item.' },
-    { time: '11:05 AM', title: 'Verified by community', desc: '14 consensus confirmations recorded on-chain.' },
-    { time: '01:10 PM', title: 'Assigned to BBMP', desc: 'Dispatched to Road Maintenance Wing (Ward 14).' },
-    { time: 'Tomorrow', title: 'Expected repair window schedule', desc: 'SLA priority timeline estimated within 24 hours.' }
-  ];
+  // Helper to format timestamps for stepper and timeline logs
+  const formatStepperTime = (timestamp?: string) => {
+    if (!timestamp) return '';
+    try {
+      const date = new Date(timestamp);
+      if (isNaN(date.getTime())) return '';
+      return date.toLocaleDateString([], { month: 'short', day: 'numeric' }) + ' ' + date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    } catch (e) {
+      return '';
+    }
+  };
 
   const getCategoryLabel = (category: string) => {
     switch (category) {
@@ -274,17 +279,74 @@ export default function TrackingHub({
                   </h3>
                   
                   {/* Progress Stepper Bar */}
-                  <div className="flex items-center gap-1.5 text-[9px] font-bold font-mono overflow-x-auto py-1 scrollbar-none min-w-max">
-                    <span className="text-emerald-400">🟢 Reported</span>
-                    <span className="text-slate-500">➔</span>
-                    <span className={selectedReport.status !== 'REPORTED' ? 'text-yellow-400' : 'text-slate-500'}>🟡 Verified</span>
-                    <span className="text-slate-500">➔</span>
-                    <span className={['DISPATCHED', 'RESOLVED', 'CLOSED_VERIFIED'].includes(selectedReport.status) ? 'text-orange-400' : 'text-slate-500'}>🟠 Assigned</span>
-                    <span className="text-slate-500">➔</span>
-                    <span className={['DISPATCHED', 'RESOLVED', 'CLOSED_VERIFIED'].includes(selectedReport.status) ? 'text-blue-400 font-extrabold' : 'text-slate-500'}>🔵 Repair Started</span>
-                    <span className="text-slate-500">➔</span>
-                    <span className={['RESOLVED', 'CLOSED_VERIFIED'].includes(selectedReport.status) ? 'text-emerald-400 font-extrabold' : 'text-slate-500'}>✅ Fixed</span>
-                  </div>
+                  {(() => {
+                    const historyArray = selectedReport?.history || [];
+                    const reportedEvent = historyArray.find(h => h.status === 'REPORTED') || { timestamp: selectedReport?.createdAt };
+                    const verifiedEvent = historyArray.find(h => h.status === 'VERIFIED');
+                    const dispatchedEvent = historyArray.find(h => h.status === 'DISPATCHED');
+                    const resolvedEvent = historyArray.find(h => h.status === 'RESOLVED');
+                    const closedEvent = historyArray.find(h => h.status === 'CLOSED_VERIFIED');
+
+                    const steps = [
+                      {
+                        label: 'Reported',
+                        active: true,
+                        colorClass: 'text-emerald-400',
+                        dot: '🟢',
+                        time: formatStepperTime(reportedEvent?.timestamp)
+                      },
+                      {
+                        label: 'Verified',
+                        active: ['VERIFIED', 'DISPATCHED', 'RESOLVED', 'CLOSED_VERIFIED'].includes(selectedReport?.status || ''),
+                        colorClass: 'text-amber-400',
+                        dot: '🟡',
+                        time: formatStepperTime(verifiedEvent?.timestamp)
+                      },
+                      {
+                        label: 'Assigned',
+                        active: ['DISPATCHED', 'RESOLVED', 'CLOSED_VERIFIED'].includes(selectedReport?.status || ''),
+                        colorClass: 'text-orange-400',
+                        dot: '🟠',
+                        time: formatStepperTime(dispatchedEvent?.timestamp)
+                      },
+                      {
+                        label: 'Fixed',
+                        active: ['RESOLVED', 'CLOSED_VERIFIED'].includes(selectedReport?.status || ''),
+                        colorClass: 'text-teal-400',
+                        dot: '🔵',
+                        time: formatStepperTime(resolvedEvent?.timestamp)
+                      },
+                      {
+                        label: 'Closed',
+                        active: selectedReport?.status === 'CLOSED_VERIFIED',
+                        colorClass: 'text-emerald-500',
+                        dot: '✅',
+                        time: formatStepperTime(closedEvent?.timestamp)
+                      }
+                    ];
+
+                    return (
+                      <div className="flex items-center gap-2.5 text-[9px] font-bold font-mono overflow-x-auto py-1 scrollbar-none min-w-max">
+                        {steps.map((step, idx) => (
+                          <React.Fragment key={step.label}>
+                            <div className="flex flex-col items-start gap-0.5">
+                              <span className={step.active ? step.colorClass : 'text-slate-500'}>
+                                {step.dot} {step.label}
+                              </span>
+                              {step.time && (
+                                <span className="text-[8px] font-normal text-slate-400 font-mono block pl-4.5">
+                                  {step.time}
+                                </span>
+                              )}
+                            </div>
+                            {idx < steps.length - 1 && (
+                              <span className="text-slate-600 self-center">➔</span>
+                            )}
+                          </React.Fragment>
+                        ))}
+                      </div>
+                    );
+                  })()}
                 </div>
               </div>
 
@@ -328,17 +390,73 @@ export default function TrackingHub({
                       SLA Event Log Timeline
                     </span>
                     <div className="flex flex-col gap-4 mt-3 pl-2.5 relative border-l border-slate-800/80">
-                      {mockTimeline.map((step, idx) => (
-                        <div key={idx} className="relative pl-4.5 flex flex-col gap-0.5">
-                          {/* Timeline dot */}
+                      {(selectedReport.history || []).length > 0 ? (
+                        (selectedReport.history || []).map((step, idx) => {
+                          const dateObj = step.timestamp ? new Date(step.timestamp) : null;
+                          const formattedTime = dateObj 
+                            ? dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) 
+                            : 'N/A';
+                          const formattedDate = dateObj 
+                            ? dateObj.toLocaleDateString([], { month: 'short', day: 'numeric' }) 
+                            : '';
+                          
+                          let defaultDesc = `Status transitioned to ${step.status}`;
+                          if (step.comment) {
+                            defaultDesc = step.comment;
+                          } else {
+                            if (step.status === 'REPORTED') {
+                              defaultDesc = 'Incident logged in system. Triage verification pending.';
+                            } else if (step.status === 'VERIFIED') {
+                              defaultDesc = 'Community audit complete. Consensus threshold reached.';
+                            } else if (step.status === 'DISPATCHED') {
+                              defaultDesc = 'Assigned to the municipal maintenance division.';
+                            } else if (step.status === 'RESOLVED') {
+                              defaultDesc = 'Resolution declared by the official squad.';
+                            } else if (step.status === 'CLOSED_VERIFIED') {
+                              defaultDesc = 'Ticket closed. Community confirmed successful patch.';
+                            }
+                          }
+
+                          return (
+                            <div key={idx} className="relative pl-4.5 flex flex-col gap-0.5">
+                              {/* Timeline dot */}
+                              <span className={`absolute left-[-5px] top-1.5 w-2.5 h-2.5 rounded-full bg-slate-800 border-2 z-10 ${
+                                step.status === 'CLOSED_VERIFIED' ? 'border-emerald-500' :
+                                step.status === 'RESOLVED' ? 'border-teal-500' :
+                                step.status === 'DISPATCHED' ? 'border-orange-500' :
+                                step.status === 'VERIFIED' ? 'border-amber-500' : 'border-indigo-500'
+                              }`}></span>
+                              <div className="flex justify-between items-baseline text-[10px]">
+                                <span className="font-extrabold text-slate-200 font-sans uppercase tracking-wide">
+                                  {step.status === 'CLOSED_VERIFIED' ? 'CLOSED' : step.status}
+                                </span>
+                                <span className="font-mono text-indigo-400 text-[9px] whitespace-nowrap">
+                                  {formattedDate} {formattedTime}
+                                </span>
+                              </div>
+                              <p className="text-[10px] text-slate-400 leading-normal font-sans">
+                                {defaultDesc}
+                              </p>
+                              {step.updatedBy && (
+                                <span className="text-[9px] text-slate-500 font-mono">By: {step.updatedBy}</span>
+                              )}
+                            </div>
+                          );
+                        })
+                      ) : (
+                        <div className="relative pl-4.5 flex flex-col gap-0.5">
                           <span className="absolute left-[-5px] top-1.5 w-2.5 h-2.5 rounded-full bg-slate-800 border-2 border-indigo-500 z-10"></span>
                           <div className="flex justify-between items-baseline text-[10px]">
-                            <span className="font-extrabold text-slate-200 font-sans">{step.title}</span>
-                            <span className="font-mono text-indigo-400">{step.time}</span>
+                            <span className="font-extrabold text-slate-200 font-sans uppercase tracking-wide">REPORTED</span>
+                            <span className="font-mono text-indigo-400 text-[9px]">
+                              {selectedReport.createdAt ? new Date(selectedReport.createdAt).toLocaleString() : 'N/A'}
+                            </span>
                           </div>
-                          <p className="text-[10px] text-slate-400 leading-normal font-sans">{step.desc}</p>
+                          <p className="text-[10px] text-slate-400 leading-normal font-sans">
+                            Incident logged in system. Initial telemetry verification pending.
+                          </p>
                         </div>
-                      ))}
+                      )}
                     </div>
                   </div>
                 </div>
