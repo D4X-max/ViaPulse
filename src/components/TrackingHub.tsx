@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { ThumbsUp, ThumbsDown, MessageSquare, Camera, CheckCircle, Navigation, ArrowRight, User, Send, ShieldAlert, Sparkles, MessageCircle, HelpCircle, Eye } from 'lucide-react';
 import L from 'leaflet';
+import { APIProvider, Map, AdvancedMarker, Pin } from '@vis.gl/react-google-maps';
 import { Report } from '../types';
 
 interface TrackingHubProps {
@@ -13,77 +14,38 @@ interface TrackingHubProps {
   showToast: (type: 'success' | 'info' | 'error', text: string) => void;
 }
 
-// Highly polished, lightweight Leaflet MiniMap to display the localized pin for the selected ticket
+// Highly polished Google MiniMap to display the localized pin for the selected ticket
 function MiniMap({ lat, lng, category }: { lat: number; lng: number; category: string }) {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const mapRef = useRef<L.Map | null>(null);
-
-  useEffect(() => {
-    if (!containerRef.current) return;
-
-    // Remove any prior map instance to avoid container reuse conflicts
-    if (mapRef.current) {
-      try {
-        mapRef.current.remove();
-      } catch (e) {
-        console.error('Error removing map', e);
-      }
-      mapRef.current = null;
-    }
-
-    try {
-      // Create lightweight, non-interactive (or static feeling) Leaflet instance centered on the coordinates
-      const map = L.map(containerRef.current, {
-        center: [lat, lng],
-        zoom: 15,
-        zoomControl: false,
-        attributionControl: false,
-        dragging: false,
-        scrollWheelZoom: false,
-        touchZoom: false,
-        doubleClickZoom: false,
-      });
-
-      // Beautiful light minimalist voyager cartodb tile layer
-      L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-        maxZoom: 19,
-      }).addTo(map);
-
-      // Custom animated pulsed marker pin
-      const pinIcon = L.divIcon({
-        className: 'mini-map-pin',
-        html: `
-          <div class="relative flex items-center justify-center">
-            <div class="absolute w-5.5 h-5.5 bg-indigo-500/30 rounded-full animate-ping"></div>
-            <div class="relative w-3.5 h-3.5 bg-indigo-600 rounded-full border-2 border-white shadow-md"></div>
-          </div>
-        `,
-        iconSize: [22, 22],
-        iconAnchor: [11, 11]
-      });
-
-      L.marker([lat, lng], { icon: pinIcon }).addTo(map);
-      mapRef.current = map;
-    } catch (err) {
-      console.error('Failed to mount MiniMap Leaflet instance:', err);
-    }
-
-    return () => {
-      if (mapRef.current) {
-        try {
-          mapRef.current.remove();
-        } catch (e) {
-          // ignore
-        }
-        mapRef.current = null;
-      }
-    };
-  }, [lat, lng, category]);
+  const API_KEY = import.meta.env.VITE_GOOGLE_MAPS_PLATFORM_KEY || '';
+  const numLat = Number(lat);
+  const numLng = Number(lng);
 
   return (
     <div className="relative w-full h-[160px] rounded-xl overflow-hidden border border-slate-800 shadow-inner">
-      <div ref={containerRef} className="w-full h-full" />
-      <div className="absolute bottom-2 right-2 bg-slate-900/90 backdrop-blur-sm px-2.5 py-1 rounded-lg text-[9px] font-mono text-slate-300 border border-slate-800/80 pointer-events-none select-none">
+      {API_KEY ? (
+        <APIProvider apiKey={API_KEY} version="weekly">
+          <Map
+            defaultCenter={{ lat: numLat, lng: numLng }}
+            center={{ lat: numLat, lng: numLng }}
+            defaultZoom={15}
+            mapId="MINI_MAP_ID"
+            disableDefaultUI={true}
+            gestureHandling="none"
+            internalUsageAttributionIds={['gmp_mcp_codeassist_v1_aistudio']}
+            style={{ width: '100%', height: '100%' }}
+          >
+            <AdvancedMarker position={{ lat: numLat, lng: numLng }}>
+              <Pin background="#4f46e5" glyphColor="#fff" borderColor="#fff" />
+            </AdvancedMarker>
+          </Map>
+        </APIProvider>
+      ) : (
+        <div className="w-full h-full flex flex-col items-center justify-center bg-slate-100 p-4 text-center">
+          <p className="text-[10px] text-slate-500 mb-1 font-semibold">Google Maps API Key Required</p>
+          <a href="https://console.cloud.google.com/google/maps-apis/start?utm_campaign=gmp-code-assist-ais" target="_blank" rel="noopener noreferrer" className="text-[9px] text-indigo-500 hover:underline">Get an API Key</a>
+        </div>
+      )}
+      <div className="absolute bottom-2 right-2 bg-slate-900/90 backdrop-blur-sm px-2.5 py-1 rounded-lg text-[9px] font-mono text-slate-300 border border-slate-800/80 pointer-events-none select-none z-[1000]">
         Coords: {lat.toFixed(4)}, {lng.toFixed(4)}
       </div>
     </div>

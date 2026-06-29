@@ -52,14 +52,9 @@ export default function AnalyticsDashboard({ reports, userRole }: AnalyticsDashb
   ];
 
   // Dynamic ward breakdown using real database wards
-  const wardMap: Record<string, number> = {
-    'Ward 1 - Downtown': 0,
-    'Ward 2 - Eastside Heights': 0,
-    'Ward 3 - Riverdale': 0,
-    'Ward 4 - North Hills': 0,
-  };
+  const wardMap: Record<string, number> = {};
   reports.forEach(r => {
-    const wardName = r.ward || 'Unknown Ward';
+    const wardName = r.ward || 'Unknown Area';
     if (wardMap[wardName] !== undefined) {
       wardMap[wardName] += 1 + (r.duplicateIds?.length || 0);
     } else {

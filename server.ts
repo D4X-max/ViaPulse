@@ -189,7 +189,7 @@ function getDynamicFallbackPredictions(reports: any[]) {
     wardActiveCount[r.ward] = (wardActiveCount[r.ward] || 0) + 1;
   });
 
-  let topWard = "Ward 1 - Downtown";
+  let topWard = "Unknown Area";
   let maxCount = 0;
   Object.entries(wardActiveCount).forEach(([ward, count]) => {
     if (count > maxCount) {
@@ -281,7 +281,7 @@ CURRENT ACTIVE LEDGER STATE:
 
 INSTRUCTIONS:
 1. Generate exactly 3 predictions mapping to infrastructure wear metrics (e.g. 'Pothole Expansion Rate', 'Stormwater Drainage Backflow', 'Grid Bulb Defatigation').
-2. Ensure the predictions contain references to the actual active categories and the most impacted wards from the active reports (e.g., if there are active potholes in "Ward 1 - Downtown", reference "Ward 1 - Downtown" in the pothole expansion rate suggestion and trigger).
+2. Ensure the predictions contain references to the actual active categories and the most impacted wards from the active reports (e.g., if there are active potholes in "Downtown Area", reference "Downtown Area" in the pothole expansion rate suggestion and trigger).
 3. Assign realistic risk levels ('CRITICAL', 'HIGH', 'MEDIUM', 'LOW') and percentage probabilities (0-100) that correlate with the number and severity of active reports in each category.
 4. Provide a professional, realistic Forecast Cause ('trigger') and Optimal Interception strategy ('suggestion') for each prediction.
 5. Create a dynamic Alert Banner reflecting the overall highest-priority ward or category risk based on the active reports.
@@ -478,7 +478,7 @@ Please classify the image and extract:
     }
 
     // Now determine the ward and local contact info based on latitude/longitude
-    const wardObj = db.findWard(latNum, lngNum);
+    const wardObj = await db.findWard(latNum, lngNum);
 
     // DEDUPLICATION: check if there's an active issue within 150m of same category
     const duplicate = db.findNearbyDuplicate(latNum, lngNum, triageResult.category);

@@ -634,7 +634,36 @@ class LocalDB {
     });
   }
 
-  public findWard(lat: number, lng: number) {
+  public async findWard(lat: number, lng: number) {
+    let placeName = '';
+    
+    if (process.env.GOOGLE_MAPS_PLATFORM_KEY) {
+      try {
+        const response = await fetch(`https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&key=${process.env.GOOGLE_MAPS_PLATFORM_KEY}`);
+        const data = await response.json();
+        if (data.results && data.results.length > 0) {
+          // Try to find neighborhood or locality
+          const addressComponents = data.results[0].address_components;
+          const neighborhood = addressComponents.find((c: any) => c.types.includes('neighborhood'))?.long_name;
+          const locality = addressComponents.find((c: any) => c.types.includes('locality'))?.long_name;
+          placeName = neighborhood || locality || data.results[0].formatted_address.split(',')[0];
+        }
+      } catch (e) {
+        console.error('Geocoding failed', e);
+      }
+    }
+    
+    if (placeName) {
+       // Generate dummy officer / email for this real place
+       return {
+         name: placeName,
+         officer: 'Local Authority',
+         email: `contact@${placeName.toLowerCase().replace(/[^a-z0-9]/g, '')}.gov`,
+         lat,
+         lng
+       };
+    }
+
     let closestWard = WARDS[0];
     let minDistance = Infinity;
     for (const ward of WARDS) {
@@ -645,22 +674,35 @@ class LocalDB {
   }
 
   public getWardStats(): WardStats[] {
-    return WARDS.map(w => {
-      const wardReports = this.reports.filter(r => r.ward === w.name);
-      const total = wardReports.length;
-      const resolved = wardReports.filter(r => r.status === 'CLOSED_VERIFIED').length;
-      const resRate = total > 0 ? (resolved / total) * 100 : 80;
-      return {
-        wardName: w.name,
-        officerName: w.officer,
-        email: w.email,
-        totalReports: total,
-        resolvedReports: resolved,
-        pendingReports: total - resolved,
-        avgResolutionTimeHours: 24.5,
-        score: Math.min(100, Math.max(10, Math.round(resRate * 0.7 + 23.5)))
-      };
-    });
+    const wardsMap = new Map<string, WardStats>();
+    for (const report of this.reports) {
+      if (!wardsMap.has(report.ward)) {
+        wardsMap.set(report.ward, {
+          wardName: report.ward,
+          officerName: report.wardEmail ? report.wardEmail.split('@')[0] : 'Officer',
+          email: report.wardEmail || 'contact@city.gov',
+          totalReports: 0,
+          resolvedReports: 0,
+          pendingReports: 0,
+          avgResolutionTimeHours: 24.5,
+          score: 80
+        });
+      }
+      const stat = wardsMap.get(report.ward)!;
+      stat.totalReports++;
+      if (report.status === 'CLOSED_VERIFIED') {
+        stat.resolvedReports++;
+      } else {
+        stat.pendingReports++;
+      }
+    }
+    
+    const statsArray = Array.from(wardsMap.values());
+    for (const stat of statsArray) {
+      const resRate = stat.totalReports > 0 ? (stat.resolvedReports / stat.totalReports) * 100 : 80;
+      stat.score = Math.min(100, Math.max(10, Math.round(resRate * 0.7 + 23.5)));
+    }
+    return statsArray;
   }
 }
 

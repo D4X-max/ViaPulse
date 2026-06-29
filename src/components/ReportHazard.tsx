@@ -417,6 +417,7 @@ export default function ReportHazard({
         <AnimatePresence>
           {isScanning && (
             <motion.div
+              key="scanner-bar"
               initial={{ opacity: 0, y: 5 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: 5 }}
@@ -532,6 +533,7 @@ export default function ReportHazard({
       <AnimatePresence>
         {showConfirmationModal && (
           <motion.div
+            key="confirmation-modal"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
@@ -561,7 +563,7 @@ export default function ReportHazard({
                   Automated Detection Signature
                 </span>
                 <p className="text-xs text-slate-200 font-sans font-medium leading-relaxed">
-                  {"We detected: "}<span className="text-rose-400 font-bold font-mono">{aiCategory ? aiCategory.toUpperCase() : getDetectedSignature(description, image).category}</span> | <span className="text-indigo-300">{aiCategory ? `${aiCategory} hazard detected` : getDetectedSignature(description, image).desc}</span> | <span className="text-emerald-400 font-mono font-bold">{getDetectedSignature(description, image).metric}</span> | <span className="text-rose-400 font-bold font-mono">{(aiSeverity || getDetectedSignature(description, image).severity).toUpperCase()} Urgency</span>
+                  {"We detected: "}<span className="text-rose-400 font-bold font-mono">{String(aiCategory || getDetectedSignature(description, image).category).toUpperCase()}</span> | <span className="text-indigo-300">{aiCategory ? `${aiCategory} hazard detected` : getDetectedSignature(description, image).desc}</span> | <span className="text-emerald-400 font-mono font-bold">{getDetectedSignature(description, image).metric}</span> | <span className="text-rose-400 font-bold font-mono">{String(aiSeverity || getDetectedSignature(description, image).severity).toUpperCase()} Urgency</span>
                 </p>
               </div>
 

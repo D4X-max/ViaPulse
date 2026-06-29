@@ -52,7 +52,7 @@ export default function OmbudsmanDashboard({
   });
 
   // Extract unique wards for filter
-  const wardsList = ['Ward 1 - Downtown', 'Ward 2 - Eastside Heights', 'Ward 3 - Riverdale', 'Ward 4 - North Hills'];
+  const wardsList = Array.from(new Set(reports.map(r => r.ward).filter(Boolean)));
 
   // Manual status updating helper
   const handleStatusChange = async (newStatus: ReportStatus) => {
