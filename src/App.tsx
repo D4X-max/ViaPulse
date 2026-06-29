@@ -341,13 +341,30 @@ export default function App() {
       <header className="bg-white border-b border-gray-100 sticky top-0 z-[1000] px-4 md:px-8 py-3.5 flex flex-col gap-3 md:flex-row md:items-center md:justify-between shadow-sm">
         <div className="flex items-center justify-between w-full md:w-auto">
           {/* Brand Logo */}
-          <div className="flex items-center select-none">
-            <div className="flex items-center bg-black px-3.5 py-1.5 rounded-lg border border-slate-900 shadow-sm h-10">
-              <span className="font-display font-black tracking-wide text-xs sm:text-sm flex items-center leading-none">
-                <span className="text-[#f14d24]">VIA</span>
-                <span className="text-[#00af50] ml-1">PULSE</span>
-              </span>
+          <div className="flex items-center gap-2.5 select-none">
+            <div className="flex items-center justify-center bg-[#1c2026] rounded-xl border border-slate-800 shadow-sm h-10 w-10 overflow-hidden relative">
+              <div className="absolute inset-0 bg-gradient-to-br from-[#1c2026] to-[#0f172a] pointer-events-none"></div>
+              <svg viewBox="0 0 100 100" className="w-full h-full p-1.5 relative z-10 drop-shadow-md" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <defs>
+                  <linearGradient id="vpGrad" x1="0%" y1="100%" x2="100%" y2="0%">
+                    <stop offset="0%" stopColor="#1e40af" />
+                    <stop offset="40%" stopColor="#0ea5e9" />
+                    <stop offset="100%" stopColor="#2dd4bf" />
+                  </linearGradient>
+                  <linearGradient id="vpGradDark" x1="0%" y1="100%" x2="100%" y2="0%">
+                    <stop offset="0%" stopColor="#1e3a8a" />
+                    <stop offset="100%" stopColor="#0369a1" />
+                  </linearGradient>
+                </defs>
+                <circle cx="50" cy="50" r="42" stroke="url(#vpGrad)" strokeWidth="6" opacity="0.8" strokeDasharray="180 80" strokeDashoffset="60" strokeLinecap="round" />
+                <path d="M 18 42 L 35 78 L 50 45 L 62 65 L 72 35 L 85 48" stroke="url(#vpGradDark)" strokeWidth="10" strokeLinecap="round" strokeLinejoin="round" />
+                <path d="M 22 40 L 39 76 L 54 43 L 66 63 L 76 33 L 89 46" stroke="url(#vpGrad)" strokeWidth="8" strokeLinecap="round" strokeLinejoin="round" />
+                <path d="M 75 18 L 70 26 L 78 26 L 74 35" stroke="#2dd4bf" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" fill="#2dd4bf" />
+              </svg>
             </div>
+            <span className="font-display font-black tracking-widest text-lg sm:text-xl flex items-center leading-none text-slate-800">
+              VIA<span className="text-transparent bg-clip-text bg-gradient-to-r from-[#0ea5e9] to-[#2dd4bf] ml-0.5">PULSE</span>
+            </span>
           </div>
           
           {/* Controls side on mobile */}
