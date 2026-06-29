@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { ThumbsUp, ThumbsDown, MessageSquare, Camera, CheckCircle, Navigation, ArrowRight, User, Send, ShieldAlert, Sparkles, MessageCircle, HelpCircle, Eye } from 'lucide-react';
+import { ThumbsUp, ThumbsDown, MessageSquare, Camera, CheckCircle, Navigation, ArrowRight, User, Send, ShieldAlert, Sparkles, MessageCircle, HelpCircle, Eye, Filter } from 'lucide-react';
 import L from 'leaflet';
 import { APIProvider, Map, AdvancedMarker, Pin } from '@vis.gl/react-google-maps';
 import { Report } from '../types';
@@ -77,6 +77,10 @@ export default function TrackingHub({
   const [commentText, setCommentText] = useState('');
   const [activeCommentReportId, setActiveCommentReportId] = useState<string | null>(null);
   const [userLocation, setUserLocation] = useState<{lat: number, lng: number} | null>(null);
+  
+  // Filter States
+  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+  const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);
 
   useEffect(() => {
     if (navigator.geolocation) {
@@ -96,8 +100,14 @@ export default function TrackingHub({
   const [localDismissals, setLocalDismissals] = useState<{ [key: string]: boolean }>({});
 
   // Separate user's own reports from alternative neighborhood users
-  const userReports = (reports || []).filter(r => r.reporterEmail === user?.email);
-  const otherReports = (reports || []).filter(r => {
+  const filteredReports = (reports || []).filter(report => {
+    const categoryMatch = selectedCategories.length === 0 || selectedCategories.includes(report.category);
+    const statusMatch = selectedStatuses.length === 0 || selectedStatuses.includes(report.status);
+    return categoryMatch && statusMatch;
+  });
+
+  const userReports = filteredReports.filter(r => r.reporterEmail === user?.email);
+  const otherReports = filteredReports.filter(r => {
     if (r.reporterEmail === user?.email) return false;
     if (!userLocation) return true;
     const dist = getDistanceFromLatLonInKm(userLocation.lat, userLocation.lng, r.latitude, r.longitude);
@@ -179,9 +189,72 @@ export default function TrackingHub({
     );
   }
 
+  const toggleCategory = (cat: string) => {
+    setSelectedCategories(prev => 
+      prev.includes(cat) ? prev.filter(c => c !== cat) : [...prev, cat]
+    );
+  };
+
+  const toggleStatus = (status: string) => {
+    setSelectedStatuses(prev => 
+      prev.includes(status) ? prev.filter(s => s !== status) : [...prev, status]
+    );
+  };
+
   return (
     <div className="flex flex-col gap-8 pt-2">
       
+      {/* Filter Bar */}
+      <div className="bg-white border border-gray-100 rounded-2xl p-4 shadow-sm flex flex-col gap-3">
+        <div className="flex items-center gap-2 text-indigo-600 border-b border-gray-100 pb-2">
+          <Filter className="w-4 h-4" />
+          <h3 className="text-xs font-bold font-mono uppercase tracking-wider">Filter Reports</h3>
+        </div>
+        
+        <div className="flex flex-col md:flex-row gap-6">
+          {/* Category Filters */}
+          <div className="flex flex-col gap-2 flex-1">
+            <span className="text-[10px] font-mono text-slate-500 uppercase font-semibold">Category</span>
+            <div className="flex flex-wrap gap-2">
+              {['pothole', 'garbage', 'water', 'lighting'].map(cat => (
+                <button
+                  key={cat}
+                  onClick={() => toggleCategory(cat)}
+                  className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all border ${
+                    selectedCategories.includes(cat)
+                      ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
+                      : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100 hover:border-slate-300'
+                  }`}
+                >
+                  {getCategoryLabel(cat)}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Status Filters */}
+          <div className="flex flex-col gap-2 flex-1">
+            <span className="text-[10px] font-mono text-slate-500 uppercase font-semibold">Status</span>
+            <div className="flex flex-wrap gap-2">
+              {['REPORTED', 'VERIFIED', 'DISPATCHED', 'RESOLVED', 'CLOSED_VERIFIED'].map(status => (
+                <button
+                  key={status}
+                  onClick={() => toggleStatus(status)}
+                  className={`px-3 py-1.5 rounded-full text-[10px] font-bold font-mono transition-all border flex items-center gap-1.5 ${
+                    selectedStatuses.includes(status)
+                      ? 'bg-slate-800 text-white border-slate-800 shadow-sm'
+                      : 'bg-slate-50 text-slate-500 border-slate-200 hover:bg-slate-100 hover:border-slate-300'
+                  }`}
+                >
+                  <span className={`w-1.5 h-1.5 rounded-full ${selectedStatuses.includes(status) ? 'bg-white' : getStatusDotColor(status)}`} />
+                  {status === 'CLOSED_VERIFIED' ? 'CLOSED' : status}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* 1 & 2: Split-Pane Ticket Registry & Dynamic Detail Timeline Hub */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
         

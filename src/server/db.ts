@@ -219,6 +219,18 @@ export async function addDoc(collectionRef: any, data: any): Promise<any> {
 let localReportsCache: Report[] = [];
 let localProfilesCache: UserProfile[] = [];
 
+function getDistanceFromLatLonInKm(lat1: number, lon1: number, lat2: number, lon2: number) {
+  const R = 6371; // Radius of the earth in km
+  const dLat = (lat2 - lat1) * (Math.PI / 180);
+  const dLon = (lon2 - lon1) * (Math.PI / 180);
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(lat1 * (Math.PI / 180)) * Math.cos(lat2 * (Math.PI / 180)) *
+    Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c; // Distance in km
+}
+
 class LocalDB {
   private reports: Report[] = [];
   private profiles: UserProfile[] = [];
@@ -484,6 +496,36 @@ class LocalDB {
         const idx = (reportsList || []).findIndex(r => r?.id === localRep?.id);
         if (idx >= 0) {
           reportsList[idx] = { ...(reportsList[idx] || {}), ...localRep };
+        }
+      }
+    });
+
+    // Predictive Analytics: Identify High-Risk Zones (precise density clusters)
+    const now = Date.now();
+    const activeReports = reportsList.filter(r => r && r.status !== 'CLOSED_VERIFIED' && r.status !== 'RESOLVED');
+    
+    reportsList.forEach(r => {
+      if (!r) return;
+      r.isHighRiskZone = false;
+      if (r.status !== 'CLOSED_VERIFIED' && r.status !== 'RESOLVED') {
+        const rTime = new Date(r.createdAt).getTime();
+        // 30-day window
+        if (now - rTime <= 30 * 24 * 60 * 60 * 1000) {
+          let clusterCount = 0;
+          activeReports.forEach(activeR => {
+            const activeTime = new Date(activeR.createdAt).getTime();
+            if (now - activeTime <= 30 * 24 * 60 * 60 * 1000) {
+               const dist = getDistanceFromLatLonInKm(r.latitude, r.longitude, activeR.latitude, activeR.longitude) * 1000;
+               if (dist <= 200) {
+                   clusterCount++;
+               }
+            }
+          });
+          
+          if (clusterCount >= 5) {
+             r.isHighRiskZone = true;
+             (r as any).status = "High-Risk Structural Degradation Zone";
+          }
         }
       }
     });

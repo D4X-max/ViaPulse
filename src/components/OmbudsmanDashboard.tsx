@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { CheckCircle2, XCircle, AlertTriangle, ShieldCheck, Mail, User, Clock, FileText, ArrowRight, Camera, Upload, Eye } from 'lucide-react';
+import { CheckCircle2, XCircle, AlertTriangle, ShieldCheck, Mail, User, Clock, FileText, ArrowRight, Camera, Upload, Eye, RefreshCw } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Report, ReportStatus, Category } from '../types';
 
@@ -33,6 +33,7 @@ export default function OmbudsmanDashboard({
   const [verificationResult, setVerificationResult] = useState<{ approved: boolean; feedback: string; confidence: number } | null>(null);
   const [verificationError, setVerificationError] = useState<string | null>(null);
   const [isCameraActive, setIsCameraActive] = useState(false);
+  const [facingMode, setFacingMode] = useState<'environment' | 'user'>('environment');
   
   // Quick status updates
   const [statusComment, setStatusComment] = useState('');
@@ -119,10 +120,11 @@ export default function OmbudsmanDashboard({
   };
 
   // Camera helpers
-  const startCamera = async () => {
+  const startCamera = async (overrideFacingMode?: 'environment' | 'user') => {
     try {
       setIsCameraActive(true);
-      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+      const mode = overrideFacingMode || facingMode;
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: mode } });
       streamRef.current = stream;
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
@@ -132,6 +134,15 @@ export default function OmbudsmanDashboard({
       alert('Camera access denied or unavailable. Please use file upload instead.');
       setIsCameraActive(false);
     }
+  };
+
+  const flipCamera = () => {
+    const newMode = facingMode === 'environment' ? 'user' : 'environment';
+    setFacingMode(newMode);
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(track => track.stop());
+    }
+    startCamera(newMode);
   };
 
   const stopCamera = () => {
@@ -435,6 +446,15 @@ export default function OmbudsmanDashboard({
                         playsInline
                         className="w-full max-h-[180px] object-cover"
                       />
+                      
+                      <button
+                        onClick={flipCamera}
+                        className="absolute top-2 right-2 p-1.5 bg-slate-800/80 hover:bg-slate-700/80 backdrop-blur text-white rounded-full transition-all"
+                        title="Flip Camera"
+                      >
+                        <RefreshCw className="w-3.5 h-3.5" />
+                      </button>
+
                       <div className="absolute bottom-2.5 left-0 right-0 flex justify-center gap-3">
                         <button
                           onClick={capturePhoto}

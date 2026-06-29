@@ -65,6 +65,17 @@ export default function AnalyticsDashboard({ reports, userRole }: AnalyticsDashb
     .map(([name, count]) => ({ name, count }))
     .sort((a, b) => b.count - a.count);
 
+  // Group high risk zones to avoid showing overlapping reports for the same cluster
+  const highRiskClusters: any[] = [];
+  reports.filter(r => r.isHighRiskZone).forEach(r => {
+    const existing = highRiskClusters.find(c => Math.abs(c.lat - r.latitude) < 0.002 && Math.abs(c.lng - r.longitude) < 0.002);
+    if (!existing) {
+      highRiskClusters.push({ lat: r.latitude, lng: r.longitude, ward: r.ward, count: 1, id: r.id });
+    } else {
+      existing.count++;
+    }
+  });
+
   return (
     <div className="flex flex-col gap-6 pt-2">
       {/* Tab Switcher */}
@@ -109,6 +120,37 @@ export default function AnalyticsDashboard({ reports, userRole }: AnalyticsDashb
               <span className="text-[10px] text-gray-400 mt-0.5 block font-sans">Fused duplicate hazard claims</span>
             </div>
           </div>
+
+          {/* High-Risk Zones Radar */}
+          {highRiskClusters.length > 0 && (
+            <div className="bg-rose-50 border border-rose-200 p-4 rounded-xl shadow-sm flex flex-col gap-3">
+              <div className="flex items-center gap-2">
+                <span className="relative flex h-3 w-3">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-3 w-3 bg-rose-500"></span>
+                </span>
+                <span className="text-[10px] uppercase font-bold tracking-wider text-rose-600 font-mono">
+                  Active High-Risk Structural Degradation Zones Detected
+                </span>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-1">
+                {highRiskClusters.map(cluster => (
+                  <div key={cluster.id} className="bg-white p-3 rounded-lg border border-rose-100 shadow-sm flex flex-col gap-1">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-gray-800">📍 {cluster.ward || 'Unknown Area'}</span>
+                      <span className="text-[10px] bg-rose-100 text-rose-700 px-2 py-0.5 rounded font-bold">{cluster.count} Active Threats</span>
+                    </div>
+                    <span className="text-[10px] font-mono text-gray-500">
+                      Coordinates: {Number(cluster.lat).toFixed(4)}, {Number(cluster.lng).toFixed(4)}
+                    </span>
+                    <span className="text-[10px] text-rose-600 mt-1 italic">
+                      High density of interconnected infrastructure failures detected within a 200m radius.
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
             {/* Common categories distribution */}

@@ -38,6 +38,7 @@ export interface Report {
   history: HistoryItem[];
   comments: Comment[];
   duplicateIds: string[];
+  isHighRiskZone?: boolean;
 }
 
 export interface UserProfile {

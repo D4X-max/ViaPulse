@@ -1,8 +1,9 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Camera, Upload, AlertCircle, Send, CheckCircle, ArrowRight, User, ThumbsUp, MessageSquare, ShieldAlert, Navigation, Award } from 'lucide-react';
+import { Camera, Upload, AlertCircle, Send, CheckCircle, ArrowRight, User, ThumbsUp, MessageSquare, ShieldAlert, Navigation, Award, RefreshCw } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Report, Category } from '../types';
 import { auth } from '../lib/firebase';
+import { compressImage } from '../lib/imageUtils';
 
 interface CitizenPortalProps {
   onReportCreated: (report: Report, isDuplicate: boolean, message: string) => void;
@@ -31,6 +32,7 @@ export default function CitizenPortal({
   const [reporterName, setReporterName] = useState('');
   const [image, setImage] = useState<string | null>(null);
   const [isCameraActive, setIsCameraActive] = useState(false);
+  const [facingMode, setFacingMode] = useState<'environment' | 'user'>('environment');
   const [formStep, setFormStep] = useState<'image' | 'location' | 'details'>('image');
   
   // Custom states for Gamification, Verification, and Video Support
@@ -101,11 +103,12 @@ export default function CitizenPortal({
   };
 
   // Camera handling
-  const startCamera = async () => {
+  const startCamera = async (overrideFacingMode?: 'environment' | 'user') => {
     setSubmitError(null);
     try {
       setIsCameraActive(true);
-      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+      const mode = overrideFacingMode || facingMode;
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: mode } });
       streamRef.current = stream;
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
@@ -115,6 +118,15 @@ export default function CitizenPortal({
       alert('Camera access denied or unavailable. Please use file upload instead.');
       setIsCameraActive(false);
     }
+  };
+
+  const flipCamera = () => {
+    const newMode = facingMode === 'environment' ? 'user' : 'environment';
+    setFacingMode(newMode);
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(track => track.stop());
+    }
+    startCamera(newMode);
   };
 
   const stopCamera = () => {
@@ -145,7 +157,7 @@ export default function CitizenPortal({
     }
   };
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     setSubmitError(null);
     const file = e.target.files?.[0];
     if (!file) return;
@@ -176,10 +188,8 @@ export default function CitizenPortal({
       // Preload high-quality hazard image base for official OCR classification
       setImage('https://images.unsplash.com/photo-1515162305285-0293e4767cc2?auto=format&fit=crop&w=800&q=80');
     } else {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        const fileData = reader.result as string;
-        
+      try {
+        const fileData = await compressImage(file, 800, 800, 0.7);
         // Trigger high-fidelity Google AI Studio scanner overlay
         setIsScanningFile(true);
         setFileScanProgress(15);
@@ -201,8 +211,35 @@ export default function CitizenPortal({
             return prev + 17; // increment smoothly
           });
         }, 200);
-      };
-      reader.readAsDataURL(file);
+      } catch (err) {
+        console.error('Error compressing image:', err);
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          const fileData = reader.result as string;
+          // Trigger high-fidelity Google AI Studio scanner overlay
+          setIsScanningFile(true);
+          setFileScanProgress(15);
+          
+          const interval = setInterval(() => {
+            setFileScanProgress(prev => {
+              if (prev >= 100) {
+                clearInterval(interval);
+                setTimeout(() => {
+                  setIsScanningFile(false);
+                  setImage(fileData);
+                  setFormStep('location');
+                  if (!newReportLocation) {
+                    setRandomSFLocation();
+                  }
+                }, 600);
+                return 100;
+              }
+              return prev + 17; // increment smoothly
+            });
+          }, 200);
+        };
+        reader.readAsDataURL(file);
+      }
     }
   };
 
@@ -477,6 +514,15 @@ export default function CitizenPortal({
                         playsInline
                         className="w-full max-h-[260px] object-cover"
                       />
+                      
+                      <button
+                        onClick={flipCamera}
+                        className="absolute top-4 right-4 p-2 bg-slate-800/80 hover:bg-slate-700/80 backdrop-blur text-white rounded-full transition-all"
+                        title="Flip Camera"
+                      >
+                        <RefreshCw className="w-4 h-4" />
+                      </button>
+
                       <div className="absolute bottom-4 left-0 right-0 flex justify-center gap-3 px-4">
                         <button
                           onClick={capturePhoto}
