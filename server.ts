@@ -94,7 +94,7 @@ Please classify the image and extract:
 
       try {
         const response = await ai.models.generateContent({
-          model: 'gemini-3.5-flash',
+          model: 'gemini-2.5-flash',
           contents: [imagePart, prompt],
           config: {
             responseMimeType: 'application/json',
@@ -290,7 +290,7 @@ INSTRUCTIONS:
 
       try {
         const response = await ai.models.generateContent({
-          model: 'gemini-3.5-flash',
+          model: 'gemini-2.5-flash',
           contents: prompt,
           config: {
             responseMimeType: 'application/json',
@@ -436,7 +436,7 @@ Please classify the image and extract:
 
       try {
         const response = await ai.models.generateContent({
-          model: 'gemini-3.5-flash',
+          model: 'gemini-2.5-flash',
           contents: [imagePart, prompt],
           config: {
             responseMimeType: 'application/json',
@@ -725,7 +725,7 @@ Please return a JSON object with:
 
       try {
         const response = await ai.models.generateContent({
-          model: 'gemini-3.5-flash',
+          model: 'gemini-2.5-flash',
           contents: [beforePart, afterPart, prompt],
           config: {
             responseMimeType: 'application/json',
@@ -817,6 +817,9 @@ app.post('/api/chat', async (req, res) => {
   }
 
   try {
+    let useFallback = !ai;
+    let responseText = '';
+
     if (ai) {
       // Build the prompt instructions
       const userContext = currentUser || { name: 'Anonymous Citizen', email: '' };
@@ -862,20 +865,26 @@ Supported tool call structures:
 
 Keep your response structured, highly readable, friendly, professional, and clear.`;
 
-      const response = await ai.models.generateContent({
-        model: 'gemini-3.5-flash',
-        contents: message,
-        config: {
-          systemInstruction,
-          temperature: 0.7,
-        },
-      });
-
-      res.json({ text: response.text });
-    } else {
-      // Graceful fallback when Gemini API is simulated/mocked
+      try {
+        const response = await ai.models.generateContent({
+          model: 'gemini-2.5-flash',
+          contents: message,
+          config: {
+            systemInstruction,
+            temperature: 0.7,
+          },
+        });
+        responseText = response.text || '';
+      } catch (geminiError) {
+        console.error('Gemini API call failed (quota or error), falling back to simulation...', geminiError);
+        useFallback = true;
+      }
+    }
+    
+    if (useFallback) {
+      // Graceful fallback when Gemini API is simulated/mocked or failed
       console.log('Simulating Copilot response...');
-      let responseText = `I am processing your inquiry across our autonomous civic nodes. Please feel free to check the public indexes for exact SLA statistics.`;
+      responseText = `I am processing your inquiry across our autonomous civic nodes. Please feel free to check the public indexes for exact SLA statistics.`;
       const lowerText = message.toLowerCase();
 
       if (lowerText.includes("why hasn't my complaint") || lowerText.includes("complaint") || lowerText.includes("status") || lowerText.includes("resolved")) {
@@ -930,9 +939,9 @@ To rank up:
       } else if (lowerText.includes("go to") && (lowerText.includes("home") || lowerText.includes("dashboard"))) {
         responseText = `Navigating back to your primary Home Dashboard.\n\n<tool_call>{"action": "NAVIGATE_TO", "tab": "home"}</tool_call>`;
       }
-
-      res.json({ text: responseText });
     }
+
+    res.json({ text: responseText });
   } catch (error) {
     console.error('Error in Copilot chatbot processing:', error);
     res.status(500).json({ error: 'Server error during Chatbot request.' });

@@ -80,7 +80,7 @@ export default function CitizenPortal({
   // Simulated agent sequence logs
   const agentSteps = [
     'Initializing Sentinel Triage Protocol...',
-    'Agent 1 [Triage]: Transmitting image stream to Gemini 3.5...',
+    'Agent 1 [Triage]: Transmitting image stream to Gemini 2.5...',
     'Agent 1 [Triage]: Analyzing visual textures & classifying hazard...',
     'Agent 2 [Deduplication]: Searching spatial coordinate index (150m radius)...',
     'Agent 3 [Ombudsman]: Querying municipal boundaries & identifying ward officer...',

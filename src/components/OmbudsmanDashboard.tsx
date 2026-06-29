@@ -47,7 +47,7 @@ export default function OmbudsmanDashboard({
   // Filter reports
   const filteredReports = reports.filter(r => {
     const catMatch = filterCategory === 'all' || r.category === filterCategory;
-    const wardMatch = filterWard === 'all' || r.ward.includes(filterWard);
+    const wardMatch = filterWard === 'all' || (r.ward && r.ward.includes(filterWard));
     const statusMatch = filterStatus === 'all' || r.status === filterStatus;
     return catMatch && wardMatch && statusMatch;
   });
@@ -286,11 +286,11 @@ export default function OmbudsmanDashboard({
                       }`}>
                         {report.status}
                       </span>
-                      <span className="text-[10px] text-gray-400 font-mono">#{report.id.substring(4)}</span>
+                      <span className="text-[10px] text-gray-400 font-mono">#{report.id?.substring(4)}</span>
                     </div>
 
                     <h4 className={`text-xs font-bold truncate capitalize font-display ${isSelected ? 'text-white' : 'text-gray-800'}`}>
-                      {report.category} on {report.ward.split(' - ')[1] || 'Main St'}
+                      {report.category} on {(report.ward && report.ward.split(' - ')[1]) || report.ward || 'Main St'}
                     </h4>
 
                     <p className={`text-[11px] line-clamp-1 ${isSelected ? 'text-slate-300' : 'text-gray-400'}`}>
@@ -299,7 +299,7 @@ export default function OmbudsmanDashboard({
 
                     <div className="flex items-center justify-between text-[9px] font-mono mt-1 text-gray-400">
                       <span>Upvotes: {report.upvotes}</span>
-                      <span>Duplicates: {report.duplicateIds.length}</span>
+                      <span>Duplicates: {report.duplicateIds?.length || 0}</span>
                     </div>
                   </div>
                 </div>

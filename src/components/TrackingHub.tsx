@@ -154,7 +154,8 @@ export default function TrackingHub({
     }
   };
 
-  const getCategoryLabel = (category: string) => {
+  const getCategoryLabel = (category?: string) => {
+    if (!category) return 'Unknown';
     switch (category) {
       case 'pothole': return 'Pothole';
       case 'garbage': return 'Garbage';
@@ -296,7 +297,7 @@ export default function TrackingHub({
 
                     <div className="flex-1 min-w-0 flex flex-col gap-0.5">
                       <span className="font-mono text-[9px] font-extrabold text-gray-400">
-                        ROAD-REP_${report.id.slice(0, 4).toUpperCase()}
+                        ROAD-REP_{report.id?.slice(0, 4)?.toUpperCase()}
                       </span>
                       <span className="text-xs font-bold text-gray-800 truncate">
                         {getCategoryLabel(report.category)}
@@ -337,7 +338,7 @@ export default function TrackingHub({
                     <span className="bg-slate-800 border border-slate-700 text-slate-300 px-2 py-0.5 rounded text-[10px] font-mono">
                       Ticket ID
                     </span>
-                    <span className="font-mono text-indigo-300">ROAD-REP_{selectedReport.id.slice(0, 6).toUpperCase()}</span>
+                    <span className="font-mono text-indigo-300">ROAD-REP_{selectedReport.id?.slice(0, 6)?.toUpperCase()}</span>
                   </h3>
                   
                   {/* Progress Stepper Bar */}
