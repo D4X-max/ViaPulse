@@ -74,7 +74,7 @@ app.post('/api/triage', async (req, res) => {
         }
       };
 
-      const prompt = `Analyze this image to detect public infrastructure issues for a civic utility app called WardWatch.
+      const prompt = `Analyze this image to detect public infrastructure issues for a civic utility app called ViaPulse.
 
 CRITICAL SAFETY & REJECTION RULES:
 1. REJECT SELFIES/PORTRAITS: If the image is a selfie, portrait, contains people as the primary subject, or shows faces clearly, you MUST set isInfrastructureHazard to false.
@@ -234,13 +234,13 @@ function getDynamicFallbackPredictions(reports: any[]) {
         hazard: 'Grid Bulb Defatigation',
         risk: lightingRisk,
         percentage: lightingPercentage,
-        trigger: `Cumulative active night hours. WardWatch has ${lighting.length} unresolved light outages.`,
+        trigger: `Cumulative active night hours. ViaPulse has ${lighting.length} unresolved light outages.`,
         suggestion: `Preemptively replace lamp bulbs near high density dark zones reported in the hub.`
       }
     ],
     alertBanner: {
       title: 'Active Municipal Alert System',
-      text: `Based on the active ${activeReports.length} complaints on the ledger, WardWatch predicts localized congestion and hazard wear risks. Primary vulnerability is centered around ${topWard}. Early repair dispatch is highly recommended.`
+      text: `Based on the active ${activeReports.length} complaints on the ledger, ViaPulse predicts localized congestion and hazard wear risks. Primary vulnerability is centered around ${topWard}. Early repair dispatch is highly recommended.`
     },
     savings: {
       claimsMitigated: `$${claimsMitigatedVal.toLocaleString()}`,
@@ -272,7 +272,7 @@ app.get('/api/predictions', async (req, res) => {
         description: r.description
       }));
       
-      const prompt = `Analyze the current public works complaints database for WardWatch and generate 3 predictive municipal infrastructure risk models based on active reports.
+      const prompt = `Analyze the current public works complaints database for ViaPulse and generate 3 predictive municipal infrastructure risk models based on active reports.
 
 CURRENT ACTIVE LEDGER STATE:
 - Total Active Reports: ${activeReports.length}
@@ -286,7 +286,7 @@ INSTRUCTIONS:
 4. Provide a professional, realistic Forecast Cause ('trigger') and Optimal Interception strategy ('suggestion') for each prediction.
 5. Create a dynamic Alert Banner reflecting the overall highest-priority ward or category risk based on the active reports.
 6. Calculate or estimate "savings" (e.g. Claims Mitigated, Crew Overtime Saved, SLA Breach Reduction, Total Estimated Savings) based on the number of resolved complaints. (e.g., resolved potholes prevent automobile liability claims, resolved light issues save safety incidents).
-7. Return confidence level (e.g., "94.8%") and primary grounding (e.g., "NOAA Weather & WardWatch Ledger").`;
+7. Return confidence level (e.g., "94.8%") and primary grounding (e.g., "NOAA Weather & ViaPulse Ledger").`;
 
       try {
         const response = await ai.models.generateContent({
@@ -414,7 +414,7 @@ app.post('/api/reports', async (req, res) => {
         }
       };
 
-      let prompt = `Analyze this image to detect public infrastructure issues for a civic utility app called WardWatch.`;
+      let prompt = `Analyze this image to detect public infrastructure issues for a civic utility app called ViaPulse.`;
       if (description) {
         prompt += `\n\nUser-provided description of the issue to aid classification: "${description}"\nUse this description in tandem with the visual content of the image to ensure accurate classification.`;
       }
@@ -517,7 +517,7 @@ Attn: ${wardObj.officer}, Public Works Supervisor
 
 Subject: FORMAL CIVIC INITIATIVE & DEMAND FOR REPAIR - ${triageResult.category.toUpperCase()} HAZARD
 
-This is a formal service demand filed on behalf of local constituents, monitored via the WardWatch Civic Sentinel Network.
+This is a formal service demand filed on behalf of local constituents, monitored via the ViaPulse Civic Sentinel Network.
 
 An infrastructure defect has been verified and mapped at GPS Coordinates: (${latNum.toFixed(5)}, ${lngNum.toFixed(5)}).
 Defect Type: ${triageResult.category.toUpperCase()}
@@ -527,12 +527,12 @@ Ordinance Compliance Reference: ${triageResult.ordinance}
 Details & Citizen Statement:
 "${triageResult.description}"
 
-Under active ward maintenance guidelines, hazards rated ${triageResult.severity.toUpperCase()} severity must be logged, inspected, and routed to field repair crews. WardWatch has flagged this issue in the public register, tracking the city's response time to ensure accountability.
+Under active ward maintenance guidelines, hazards rated ${triageResult.severity.toUpperCase()} severity must be logged, inspected, and routed to field repair crews. ViaPulse has flagged this issue in the public register, tracking the city's response time to ensure accountability.
 
 Please dispatch the appropriate service unit to restore safety and public utility at this location.
 
 Sincerely,
-${nameOfReporter} and the WardWatch Civic Ombudsman Agent`;
+${nameOfReporter} and the ViaPulse Civic Ombudsman Agent`;
 
     // Create the new report
     const newReport: Report = {
@@ -564,8 +564,8 @@ ${nameOfReporter} and the WardWatch Civic Ombudsman Agent`;
         {
           status: 'VERIFIED',
           timestamp: new Date().toISOString(),
-          updatedBy: 'WardWatch Sentinel Agent',
-          comment: `AI Triage completed: ${triageResult.category} (${triageResult.severity} severity). Formatted legal request generated and sent to ${wardObj.officer}.`
+          updatedBy: 'ViaPulse Sentinel Agent',
+          comment: `AI Triage completed: ${triageResult.category} (${triageResult.severity} severity). Formatted legal request generated and sent to the respective municipal authority.`
         }
       ],
       comments: []
@@ -709,7 +709,7 @@ app.post('/api/reports/:id/verify-resolution', async (req, res) => {
         }
       };
 
-      const prompt = `You are the WardWatch Automated AI Verification Agent.
+      const prompt = `You are the ViaPulse Automated AI Verification Agent.
 You are given two images for comparison:
 - Image 1 is the 'before' image showing an active civic infrastructure hazard (originally classified as a '${report.category}').
 - Image 2 is the 'after' image showing the reported location after a claimed maintenance repair.
@@ -768,7 +768,7 @@ Please return a JSON object with:
       const closedHistory = {
         status: 'CLOSED_VERIFIED' as ReportStatus,
         timestamp: new Date().toISOString(),
-        updatedBy: 'WardWatch Verification Agent',
+        updatedBy: 'ViaPulse Verification Agent',
         comment: `AI Visual Verification APPROVED (Confidence: ${(verificationResult.confidence * 100).toFixed(0)}%). Feedback: ${verificationResult.feedback}`
       };
 
@@ -787,7 +787,7 @@ Please return a JSON object with:
       const rejectedHistory = {
         status: report.status, // keep current status
         timestamp: new Date().toISOString(),
-        updatedBy: 'WardWatch Verification Agent',
+        updatedBy: 'ViaPulse Verification Agent',
         comment: `AI Visual Verification REJECTED (Confidence: ${(verificationResult.confidence * 100).toFixed(0)}%). Feedback: ${verificationResult.feedback}. Issue remains open.`
       };
 
@@ -824,7 +824,7 @@ app.post('/api/chat', async (req, res) => {
       const statsContext = wardStats || [];
 
       const systemInstruction = `You are the ViaPulse AI Copilot, an autonomous, context-aware municipal utility agent.
-You are assisting the logged-in citizen on the WardWatch decentralised civic ledger.
+You are assisting the logged-in citizen on the ViaPulse decentralised civic ledger.
 Your replies must be based on the actual, live data provided below. Do not make up arbitrary or false facts.
 
 CONTEXT SCOPES:
@@ -1086,7 +1086,7 @@ async function startServer() {
   }
 
   app.listen(PORT, '0.0.0.0', () => {
-    console.log(`WardWatch Full-Stack Server running on port ${PORT}`);
+    console.log(`ViaPulse Full-Stack Server running on port ${PORT}`);
   });
 }
 

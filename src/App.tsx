@@ -325,7 +325,7 @@ export default function App() {
                   <Navigation className="w-5 h-5 text-indigo-600 shrink-0" />
                 )}
                 <div className="flex-1 text-xs text-slate-800">
-                  <span className="font-bold">WardWatch Sentinel</span>
+                  <span className="font-bold">ViaPulse Sentinel</span>
                   <p className="mt-0.5 leading-normal opacity-90">{notification.text}</p>
                 </div>
               </div>
@@ -550,7 +550,7 @@ export default function App() {
                 <Navigation className="w-5 h-5 text-indigo-600 shrink-0" />
               )}
               <div className="flex-1 text-xs">
-                <span className="font-bold">WardWatch Sentinel</span>
+                <span className="font-bold">ViaPulse Sentinel</span>
                 <p className="mt-0.5 leading-normal opacity-90">{notification.text}</p>
               </div>
             </div>
@@ -705,7 +705,7 @@ export default function App() {
 
       {/* Minimal Footer */}
       <footer className="bg-white border-t border-gray-100 py-3.5 px-6 text-center text-[10px] text-gray-400 font-sans mt-auto flex flex-col sm:flex-row items-center justify-between gap-3">
-        <span>WardWatch Autonomous Ombudsman Framework © 2026. Powered by Google Gemini Multi-Agent Infrastructure.</span>
+        <span>ViaPulse Autonomous Ombudsman Framework © 2026. Powered by Google Gemini Multi-Agent Infrastructure.</span>
       </footer>
 
     </div>

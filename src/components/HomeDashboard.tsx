@@ -76,7 +76,7 @@ export default function HomeDashboard({
           <h2 className="text-2xl font-display font-bold tracking-tight">👋 Welcome Back, {displayUserName}</h2>
           {user?.email && <p className="text-xs text-indigo-200 font-mono mt-1">{user.email}</p>}
           <p className="text-xs text-slate-300 mt-2 max-w-xl leading-relaxed">
-            You are authorized on the WardWatch decentralized ledger. Help us monitor infrastructure flaws and accelerate public municipal repairs.
+            You are authorized on the ViaPulse decentralized ledger. Help us monitor infrastructure flaws and accelerate public municipal repairs.
           </p>
           
           <button

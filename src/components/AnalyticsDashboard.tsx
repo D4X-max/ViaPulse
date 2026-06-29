@@ -165,42 +165,6 @@ export default function AnalyticsDashboard({ reports, userRole }: AnalyticsDashb
             </div>
           </div>
 
-          {/* Point 10: Complaint Density Heatmap grid layer */}
-          {userRole === 'admin' && (
-            <div className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm flex flex-col gap-3">
-              <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400 font-mono flex items-center gap-1">
-                <Layers className="w-3.5 h-3.5 text-indigo-500" />
-                Complaint Density Heatmap
-              </span>
-              
-              <div className="relative rounded-xl border border-slate-100 h-40 bg-slate-50 flex items-center justify-center overflow-hidden">
-                {/* Heatmap background grid simulator */}
-                <div className="absolute inset-0 grid grid-cols-8 grid-rows-4 gap-1 p-2 opacity-30">
-                  {Array.from({ length: 32 }).map((_, idx) => {
-                    const intensity = [3, 7, 10, 4, 8, 1, 9, 2, 6, 12, 14, 5, 11, 2, 6, 8, 4, 15, 3, 7, 1, 9, 13, 2, 4, 8, 6, 12, 3, 7, 2, 5][idx] || 5;
-                    const intensityColor = intensity > 12 
-                      ? 'bg-rose-500' 
-                      : intensity > 8 
-                      ? 'bg-orange-500' 
-                      : intensity > 4 
-                      ? 'bg-amber-500' 
-                      : 'bg-emerald-500';
-                    return (
-                      <div key={idx} className={`rounded ${intensityColor} opacity-75`} />
-                    );
-                  })}
-                </div>
-                <div className="relative z-10 text-center flex flex-col items-center gap-1 p-4 bg-white/95 backdrop-blur-sm rounded-xl border border-gray-150 shadow-sm">
-                  <span className="text-[10px] font-mono font-bold text-indigo-600 uppercase tracking-widest block">
-                    Interactive Heatmap Core Active
-                  </span>
-                  <p className="text-[10px] text-gray-500 max-w-sm leading-normal">
-                    Overlaying crowdsourced coordinates against historical weather and thermal expansion indicators to predict future sinkhole formation.
-                  </p>
-                </div>
-              </div>
-            </div>
-          )}
         </div>
       )}
     </div>

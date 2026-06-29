@@ -381,7 +381,7 @@ export default function OmbudsmanDashboard({
                 <div className="flex flex-col gap-1">
                   <h4 className="font-bold text-sm">Issue Closed & Verified</h4>
                   <p className="text-xs text-emerald-700/90 leading-relaxed">
-                    This public infrastructure hazard has been fully resolved by city work teams, verified by the WardWatch visual neural comparison model, and permanently marked closed in the city register.
+                    This public infrastructure hazard has been fully resolved by city work teams, verified by the ViaPulse visual neural comparison model, and permanently marked closed in the city register.
                   </p>
                 </div>
               </div>

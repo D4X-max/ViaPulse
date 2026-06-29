@@ -356,17 +356,47 @@ export default function TrackingHub({
                 {/* Left Column: Image, Description, Mini Localized Viewport */}
                 <div className="md:col-span-7 flex flex-col gap-4">
                   {/* Large Hazard Image */}
-                  <div className="rounded-xl overflow-hidden aspect-video bg-slate-950 border border-slate-800 relative group shadow-lg">
-                    <img 
-                      src={selectedReport.imageUrl || 'https://images.unsplash.com/photo-1515162305285-0293e4767cc2'} 
-                      alt="Fault preview" 
-                      className="w-full h-full object-cover"
-                      referrerPolicy="no-referrer"
-                    />
-                    <div className="absolute inset-x-0 bottom-0 bg-slate-950/80 backdrop-blur-[1px] p-2 text-center text-[10px] font-mono text-emerald-400 border-t border-slate-800/50">
-                      Consensus Secured & Verified
+                  {selectedReport.status === 'CLOSED_VERIFIED' && (selectedReport.history || []).some(h => h.imageUrl) ? (
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="rounded-xl overflow-hidden aspect-video bg-slate-950 border border-slate-800 relative group shadow-lg">
+                        <img 
+                          src={selectedReport.imageUrl || 'https://images.unsplash.com/photo-1515162305285-0293e4767cc2'} 
+                          alt="Before fault preview" 
+                          className="w-full h-full object-cover"
+                          referrerPolicy="no-referrer"
+                        />
+                        <div className="absolute top-2 left-2 bg-slate-900/80 backdrop-blur-md px-2 py-1 rounded-md text-[10px] font-mono text-amber-400 border border-slate-700/50 shadow-sm">
+                          BEFORE
+                        </div>
+                      </div>
+                      <div className="rounded-xl overflow-hidden aspect-video bg-slate-950 border border-slate-800 relative group shadow-lg">
+                        <img 
+                          src={(selectedReport.history || []).find(h => h.imageUrl)?.imageUrl} 
+                          alt="After fault preview" 
+                          className="w-full h-full object-cover"
+                          referrerPolicy="no-referrer"
+                        />
+                        <div className="absolute top-2 left-2 bg-slate-900/80 backdrop-blur-md px-2 py-1 rounded-md text-[10px] font-mono text-emerald-400 border border-slate-700/50 shadow-sm">
+                          AFTER
+                        </div>
+                        <div className="absolute inset-x-0 bottom-0 bg-slate-950/80 backdrop-blur-[1px] p-2 text-center text-[10px] font-mono text-emerald-400 border-t border-slate-800/50">
+                          Issue Fixed & Verified
+                        </div>
+                      </div>
                     </div>
-                  </div>
+                  ) : (
+                    <div className="rounded-xl overflow-hidden aspect-video bg-slate-950 border border-slate-800 relative group shadow-lg">
+                      <img 
+                        src={selectedReport.imageUrl || 'https://images.unsplash.com/photo-1515162305285-0293e4767cc2'} 
+                        alt="Fault preview" 
+                        className="w-full h-full object-cover"
+                        referrerPolicy="no-referrer"
+                      />
+                      <div className="absolute inset-x-0 bottom-0 bg-slate-950/80 backdrop-blur-[1px] p-2 text-center text-[10px] font-mono text-emerald-400 border-t border-slate-800/50">
+                        Consensus Secured & Verified
+                      </div>
+                    </div>
+                  )}
 
                   {/* Incident Description */}
                   <div className="bg-slate-950/50 rounded-xl p-3.5 border border-slate-850/80 text-xs">

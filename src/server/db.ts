@@ -118,7 +118,7 @@ const SEED_REPORTS: Report[] = [
       {
         status: 'VERIFIED',
         timestamp: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
-        updatedBy: 'WardWatch Sentinel Agent',
+        updatedBy: 'ViaPulse Sentinel Agent',
         comment: 'AI Triage completed. Water category verified.'
       }
     ],
