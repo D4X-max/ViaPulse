@@ -1,4 +1,4 @@
-# ViaPulse: Autonomous Civic Ombudsman Framework
+# WardWatch: Autonomous Civic Ombudsman Framework
 
 ## 🏢 1. Executive Summary & Problem Statement
 
@@ -7,11 +7,11 @@ Municipal civic governance often suffers from a profound structural transparency
 1.  **Data Noise & Duplication:** Unverified, overlapping community reports flooding municipal networks, making it impossible to identify unique incidents.
 2.  **Triage Inefficiency:** The lack of automated, data-driven prioritization triage matrices forces human officials to manually sort, grade, and assign tasks, causing massive SLA violations and resource misallocation.
 
-ViaPulse solves this by introducing an autonomous, AI-driven ombudsman layer that ingests citizen reports, automatically triages them using multimodal AI, groups duplicates, and routes them to the appropriate ward officials with priority scores attached.
+WardWatch solves this by introducing an autonomous, AI-driven ombudsman layer that ingests citizen reports, automatically triages them using multimodal AI, groups duplicates, and routes them to the appropriate ward officials with priority scores attached.
 
 ## 📊 2. System Architecture & Component Mapping
 
-ViaPulse utilizes a full-stack Node/Express and React architecture, tightly integrated with Google Cloud Firebase and Gemini AI.
+WardWatch utilizes a full-stack Node/Express and React architecture, tightly integrated with Google Cloud Firebase and Gemini AI.
 
 ```text
 [ Citizen / Official Devices ]
@@ -89,4 +89,18 @@ VITE_FIREBASE_MESSAGING_SENDER_ID=your_sender_id
 VITE_FIREBASE_APP_ID=your_app_id
 ```
 
+### Sandbox Security Rules
 
+For the development and hackathon evaluation phase, the Firestore environment is configured with open sandbox rules to permit unhindered testing of the client-to-cloud workflows:
+
+```javascript
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /{document=**} {
+      allow read, write: if true;
+    }
+  }
+}
+```
+*Note: These rules are strictly for the evaluation sandbox and must be hardened before production deployment.*
