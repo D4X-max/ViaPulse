@@ -1,12 +1,13 @@
 import React, { useEffect, useState } from 'react';
-import { APIProvider, Map, AdvancedMarker, Pin, useMap, InfoWindow } from '@vis.gl/react-google-maps';
+import { APIProvider, Map, AdvancedMarker, Pin, useMap, InfoWindow, useMapsLibrary } from '@vis.gl/react-google-maps';
 import type { MapMouseEvent } from '@vis.gl/react-google-maps';
+import { X } from 'lucide-react';
 import { Report } from '../types';
 
 interface ReportMapProps {
   reports: Report[];
   selectedReportId?: string;
-  onSelectReport: (report: Report) => void;
+  onSelectReport: (report: Report | null) => void;
   onSelectLocation?: (lat: number, lng: number) => void;
   newReportLocation?: { latitude: number; longitude: number } | null;
   categoryFilter?: string | null;
@@ -22,11 +23,33 @@ function MapContent({
 }: {
   reports: Report[];
   selectedReportId?: string;
-  onSelectReport: (report: Report) => void;
+  onSelectReport: (report: Report | null) => void;
   newReportLocation?: { latitude: number; longitude: number } | null;
   selectedFilters: { [key: string]: boolean };
 }) {
   const map = useMap();
+  const geocodingLib = useMapsLibrary('geocoding');
+  const [reportAddress, setReportAddress] = useState<string | null>(null);
+  const [hasInitialCentered, setHasInitialCentered] = useState(false);
+
+  // Center on user's location initially if no report/location is selected
+  useEffect(() => {
+    if (!map || hasInitialCentered) return;
+
+    if (!selectedReportId && !newReportLocation && navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          map.panTo({ lat: position.coords.latitude, lng: position.coords.longitude });
+          map.setZoom(14);
+          setHasInitialCentered(true);
+        },
+        (error) => {
+          console.error("Error getting location:", error);
+          setHasInitialCentered(true);
+        }
+      );
+    }
+  }, [map, hasInitialCentered, selectedReportId, newReportLocation]);
 
   useEffect(() => {
     if (!map || !selectedReportId) return;
@@ -43,6 +66,26 @@ function MapContent({
     map.panTo({ lat: Number(newReportLocation.latitude), lng: Number(newReportLocation.longitude) });
     map.setZoom(16);
   }, [map, newReportLocation]);
+
+  // Reverse Geocoding for the selected report
+  useEffect(() => {
+    if (!geocodingLib || !selectedReportId) {
+      setReportAddress(null);
+      return;
+    }
+    
+    const selectedReport = (reports || []).find(r => r?.id === selectedReportId);
+    if (selectedReport) {
+      const geocoder = new geocodingLib.Geocoder();
+      geocoder.geocode({ location: { lat: Number(selectedReport.latitude), lng: Number(selectedReport.longitude) } }, (results, status) => {
+        if (status === 'OK' && results && results[0]) {
+          setReportAddress(results[0].formatted_address);
+        } else {
+          setReportAddress('Address not found');
+        }
+      });
+    }
+  }, [geocodingLib, selectedReportId, reports]);
 
   const filteredReports = (reports || []).filter(r => {
     const catKey = r?.category || 'pothole';
@@ -79,15 +122,27 @@ function MapContent({
             {isSelected && (
               <InfoWindow
                 position={{ lat: numLat, lng: numLng }}
-                onCloseClick={() => {}}
                 headerDisabled={true}
               >
-                <div className="p-3 min-w-[160px] flex flex-col gap-2.5">
-                  <div className="flex items-center gap-1.5 whitespace-nowrap">
-                    <span className={`w-2 h-2 rounded-full ${isClosed ? 'bg-emerald-500' : 'bg-rose-500'}`}></span>
-                    <span className="text-[11px] font-bold text-slate-900 tracking-tight">
-                      {String(report.category || 'hazard').toUpperCase()} - {report.status || 'REPORTED'}
-                    </span>
+                <div className="p-3 min-w-[160px] flex flex-col gap-2.5 relative group">
+                  <button 
+                    onClick={() => onSelectReport(null)}
+                    className="absolute top-1.5 right-1.5 p-1 bg-white/80 hover:bg-slate-100 rounded-full z-10 transition-colors shadow-sm border border-slate-200"
+                  >
+                    <X className="w-3.5 h-3.5 text-slate-500" />
+                  </button>
+                  <div className="flex flex-col gap-1 pr-6">
+                    <div className="flex items-center gap-1.5 whitespace-nowrap">
+                      <span className={`w-2 h-2 rounded-full ${isClosed ? 'bg-emerald-500' : 'bg-rose-500'}`}></span>
+                      <span className="text-[11px] font-bold text-slate-900 tracking-tight">
+                        {String(report.category || 'hazard').toUpperCase()} - {report.status || 'REPORTED'}
+                      </span>
+                    </div>
+                    {reportAddress && (
+                      <span className="text-[10px] text-slate-500 leading-tight">
+                        {reportAddress}
+                      </span>
+                    )}
                   </div>
                   {report.imageUrl ? (
                     <img src={report.imageUrl} alt="Hazard" className="w-full h-28 object-cover rounded-md bg-slate-100 border border-slate-200" referrerPolicy="no-referrer" />

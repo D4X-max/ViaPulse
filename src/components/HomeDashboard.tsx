@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Sparkles, ArrowRight, CheckCircle, Clock, AlertTriangle, MapPin, ThumbsUp } from 'lucide-react';
 import { Report } from '../types';
 
@@ -10,6 +10,19 @@ interface HomeDashboardProps {
   onNavigateToTracking: () => void;
 }
 
+function getDistanceFromLatLonInKm(lat1: number, lon1: number, lat2: number, lon2: number) {
+  const R = 6371; // Radius of the earth in km
+  const dLat = (lat2 - lat1) * (Math.PI / 180);
+  const dLon = (lon2 - lon1) * (Math.PI / 180);
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(lat1 * (Math.PI / 180)) * Math.cos(lat2 * (Math.PI / 180)) *
+    Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  const d = R * c; // Distance in km
+  return d;
+}
+
 export default function HomeDashboard({
   user,
   reports,
@@ -17,6 +30,21 @@ export default function HomeDashboard({
   onNavigateToReport,
   onNavigateToTracking
 }: HomeDashboardProps) {
+  const [userLocation, setUserLocation] = useState<{lat: number, lng: number} | null>(null);
+
+  useEffect(() => {
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          setUserLocation({ lat: position.coords.latitude, lng: position.coords.longitude });
+        },
+        (error) => {
+          console.error("Error getting location:", error);
+        }
+      );
+    }
+  }, []);
+
   if (!reports) {
     return (
       <div className="flex flex-col items-center justify-center p-12 text-slate-400 gap-3 border border-dashed border-slate-200 rounded-2xl min-h-[300px]">
@@ -47,6 +75,13 @@ export default function HomeDashboard({
   }).slice(0, 5);
 
   const displayUserName = user?.displayName || user?.email?.split('@')[0] || 'Citizen';
+
+  // Filter nearby reports for Community Activity (within 5km)
+  const nearbyReports = (reports || []).filter(r => {
+    if (!userLocation) return true; // Show all if location not yet loaded or denied
+    const dist = getDistanceFromLatLonInKm(userLocation.lat, userLocation.lng, r.latitude, r.longitude);
+    return dist <= 5;
+  });
 
   // Find top category (mode) within active report stack
   let topCategory = 'infrastructure';
@@ -136,7 +171,7 @@ export default function HomeDashboard({
             Recent Community Activity
           </h3>
           <div className="flex flex-col gap-3">
-            {(reports || []).slice(0, 3).map((report) => (
+            {nearbyReports.length > 0 ? nearbyReports.slice(0, 3).map((report) => (
               <div 
                 key={report?.id || Math.random().toString()}
                 onClick={() => {
@@ -163,7 +198,11 @@ export default function HomeDashboard({
                   <p className="text-xs text-gray-700 font-medium truncate mt-1">{report?.description || 'No description'}</p>
                 </div>
               </div>
-            ))}
+            )) : (
+              <div className="bg-slate-50 p-4 rounded-xl border border-dashed border-slate-200 flex items-center justify-center text-xs text-slate-400 font-mono text-center">
+                No reports found within 5km radius of your current location.
+              </div>
+            )}
           </div>
         </div>
 

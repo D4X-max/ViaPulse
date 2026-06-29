@@ -52,6 +52,19 @@ function MiniMap({ lat, lng, category }: { lat: number; lng: number; category: s
   );
 }
 
+function getDistanceFromLatLonInKm(lat1: number, lon1: number, lat2: number, lon2: number) {
+  const R = 6371; // Radius of the earth in km
+  const dLat = (lat2 - lat1) * (Math.PI / 180);
+  const dLon = (lon2 - lon1) * (Math.PI / 180);
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(lat1 * (Math.PI / 180)) * Math.cos(lat2 * (Math.PI / 180)) *
+    Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  const d = R * c; // Distance in km
+  return d;
+}
+
 export default function TrackingHub({
   reports,
   selectedReport,
@@ -63,6 +76,20 @@ export default function TrackingHub({
 }: TrackingHubProps) {
   const [commentText, setCommentText] = useState('');
   const [activeCommentReportId, setActiveCommentReportId] = useState<string | null>(null);
+  const [userLocation, setUserLocation] = useState<{lat: number, lng: number} | null>(null);
+
+  useEffect(() => {
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          setUserLocation({ lat: position.coords.latitude, lng: position.coords.longitude });
+        },
+        (error) => {
+          console.error("Error getting location:", error);
+        }
+      );
+    }
+  }, []);
 
   // Community confirmation counters & upload states
   const [localConfirmations, setLocalConfirmations] = useState<{ [key: string]: boolean }>({});
@@ -70,14 +97,14 @@ export default function TrackingHub({
 
   // Separate user's own reports from alternative neighborhood users
   const userReports = (reports || []).filter(r => r.reporterEmail === user?.email);
-  const otherReports = (reports || []).filter(r => r.reporterEmail !== user?.email);
+  const otherReports = (reports || []).filter(r => {
+    if (r.reporterEmail === user?.email) return false;
+    if (!userLocation) return true;
+    const dist = getDistanceFromLatLonInKm(userLocation.lat, userLocation.lng, r.latitude, r.longitude);
+    return dist <= 5;
+  });
 
-  // Auto-select first of user's own reports on initial load if none is selected
-  useEffect(() => {
-    if (!selectedReport && userReports.length > 0) {
-      onSelectReport(userReports[0]);
-    }
-  }, [selectedReport, userReports, onSelectReport]);
+  // Removed auto-select of user's own reports on initial load to prevent map popup
 
   const handleConfirm = (id: string) => {
     if (localConfirmations[id]) return;
@@ -586,7 +613,7 @@ export default function TrackingHub({
           <div className="text-center py-12 bg-gray-50 border border-gray-100 rounded-2xl text-slate-400 flex flex-col items-center gap-2">
             <CheckCircle className="w-8 h-8 text-emerald-500" />
             <p className="text-[11px] font-sans font-medium text-slate-500">
-              No other neighborhood reports require verification at this time. All community ledgers are fully validated!
+              No other reports found within 5km radius of your current location. All local neighborhood ledgers are fully validated!
             </p>
           </div>
         )}

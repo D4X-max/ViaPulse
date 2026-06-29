@@ -127,11 +127,8 @@ export default function App() {
       const reportsData = await reportsRes.json();
       setReports(reportsData);
 
-      // Default select the first report if none is selected
-      if (reportsData.length > 0 && !selectedReport) {
-        setSelectedReport(reportsData[0]);
-      } else if (selectedReport) {
-        // Sync selected report if it was updated
+      // Sync selected report if it was updated
+      if (selectedReport) {
         const updated = reportsData.find((r: Report) => r.id === selectedReport.id);
         if (updated) setSelectedReport(updated);
       }
