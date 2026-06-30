@@ -117,19 +117,5 @@ Configure the application environment using an `.env` file at the repository roo
 | `VITE_FIREBASE_MESSAGING_SENDER_ID` | Cloud Messaging ID | Client (`Vite`) |
 | `VITE_FIREBASE_APP_ID` | Firebase application identifier | Client (`Vite`) |
 
-### Sandbox Security Rules (Firestore)
+---
 
-During the prototyping and hackathon evaluation phase, the Firestore environment is configured with open sandbox rules to facilitate immediate testing and data bypass capabilities.
-
-```javascript
-rules_version = '2';
-service cloud.firestore {
-  match /databases/{database}/documents {
-    match /{document=**} {
-      allow read, write: if true;
-    }
-  }
-}
-```
-
-> **⚠️ Security Advisory**: These open rules are explicitly deployed for prototyping velocity and judge evaluation. Prior to enterprise production deployment, the database must be hardened utilizing granular IAM-backed security rules restricting `write` access strictly to authenticated officials and locking citizen writes to localized user contexts.
