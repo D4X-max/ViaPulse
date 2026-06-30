@@ -41,87 +41,14 @@ The result is faster reporting, improved municipal efficiency, and greater trans
 
 ---
 
-# ✨ Why ViaPulse?
+#  Why ViaPulse?
 
 Unlike traditional complaint portals, ViaPulse acts as an intelligent AI assistant rather than just a reporting platform.
 
 ### Traditional Workflow
 
-Citizen
+<img width="1490" height="6532" alt="AI-Driven Emergency-2026-06-30-105015" src="https://github.com/user-attachments/assets/2cdb29da-24ff-481d-94a9-ee58a48fce00" />
 
-↓
-
-Uploads Complaint
-
-↓
-
-Municipal Staff Reviews
-
-↓
-
-Categorization
-
-↓
-
-Verification
-
-↓
-
-Assignment
-
-↓
-
-Resolution
-
----
-
-### ViaPulse Workflow
-
-Citizen
-
-↓
-
-Upload Image
-
-↓
-
-Gemini Vision Analysis
-
-↓
-
- AI Categorization
-
-↓
-
- Severity Prediction
-
-↓
-
-AI Follow-up Questions (if required)
-
-↓
-
- Duplicate Detection
-
-↓
-
- Location Intelligence
-
-↓
-
- Structured Municipal Report
-
-↓
-
- Authority Dashboard
-
-↓
-
- Resolution
-
-↓
-
- AI Repair Verification
 
 ---
 
