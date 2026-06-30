@@ -56,7 +56,7 @@ app.get('/api/health', (req, res) => {
 
 // 1.1. Triage an image with Gemini
 app.post('/api/triage', async (req, res) => {
-  const { image } = req.body;
+  const { image, clarificationAnswers } = req.body;
   if (!image) {
     return res.status(400).json({ error: 'Missing required parameter: image' });
   }
@@ -74,7 +74,7 @@ app.post('/api/triage', async (req, res) => {
         }
       };
 
-      const prompt = `Analyze this image to detect public infrastructure issues for a civic utility app called ViaPulse.
+      let prompt = `Analyze this image to detect public infrastructure issues for a civic utility app called ViaPulse.
 
 CRITICAL SAFETY & REJECTION RULES:
 1. REJECT SELFIES/PORTRAITS: If the image is a selfie, portrait, contains people as the primary subject, or shows faces clearly, you MUST set isInfrastructureHazard to false.
@@ -90,7 +90,18 @@ Please classify the image and extract:
 2. category: string (Must be exactly one of: 'pothole', 'garbage', 'water', 'lighting').
 3. severity: string (Must be exactly one of: 'low', 'medium', 'high').
 4. description: string (A professional, concise 2-3 sentence description detailing the issue and hazard risks, or explaining the rejection reason).
-5. municipalOrdinanceCitations: string (An official-sounding mock municipal code section relevant to this hazard, e.g. "Municipal Code Section 12.4 - Public Sidewalk Maintenance" or "Utility Water Protection Act Section 8").`;
+5. municipalOrdinanceCitations: string (An official-sounding mock municipal code section relevant to this hazard, e.g. "Municipal Code Section 12.4 - Public Sidewalk Maintenance" or "Utility Water Protection Act Section 8").
+6. confidence: number (A score from 0 to 100 representing how confident you are in your analysis and categorization).
+7. clarificationNeeded: boolean (If your confidence is below 85, or if the image is ambiguous, or you are missing key details about severity/size/impact, set this to true. If you have enough info, set to false).
+8. clarificationReason: string (If clarification is needed, briefly explain why to the user).
+9. questions: array of objects (If clarificationNeeded is true, provide 1 to 3 questions to ask the user. Each question should have an 'id', 'text', and an array of 'options').`;
+
+      if (clarificationAnswers) {
+        prompt += `\n\nUSER CLARIFICATION ANSWERS PROVIDED:
+The user has answered follow-up questions to help you refine this report. Please incorporate these answers into your final assessment, boosting your confidence score appropriately and finalizing the report:
+${JSON.stringify(clarificationAnswers, null, 2)}
+Ensure that clarificationNeeded is now set to false if these answers resolve your ambiguity.`;
+      }
 
       try {
         const response = await ai.models.generateContent({
@@ -105,9 +116,27 @@ Please classify the image and extract:
                 category: { type: Type.STRING },
                 severity: { type: Type.STRING },
                 description: { type: Type.STRING },
-                municipalOrdinanceCitations: { type: Type.STRING }
+                municipalOrdinanceCitations: { type: Type.STRING },
+                confidence: { type: Type.NUMBER },
+                clarificationNeeded: { type: Type.BOOLEAN },
+                clarificationReason: { type: Type.STRING },
+                questions: {
+                  type: Type.ARRAY,
+                  items: {
+                    type: Type.OBJECT,
+                    properties: {
+                      id: { type: Type.STRING },
+                      text: { type: Type.STRING },
+                      options: {
+                        type: Type.ARRAY,
+                        items: { type: Type.STRING }
+                      }
+                    },
+                    required: ['id', 'text', 'options']
+                  }
+                }
               },
-              required: ['isInfrastructureHazard', 'category', 'severity', 'description', 'municipalOrdinanceCitations']
+              required: ['isInfrastructureHazard', 'category', 'severity', 'description', 'municipalOrdinanceCitations', 'confidence', 'clarificationNeeded']
             }
           }
         });
@@ -118,7 +147,11 @@ Please classify the image and extract:
           category: (parsedJson.category || 'pothole').toLowerCase() as Category,
           severity: (parsedJson.severity || 'medium').toLowerCase() as Severity,
           description: parsedJson.description || 'Infrastructure hazard reported.',
-          ordinance: parsedJson.municipalOrdinanceCitations || 'Municipal Ordinance Code Section 14.2'
+          ordinance: parsedJson.municipalOrdinanceCitations || 'Municipal Ordinance Code Section 14.2',
+          confidence: parsedJson.confidence || 90,
+          clarificationNeeded: parsedJson.clarificationNeeded || false,
+          clarificationReason: parsedJson.clarificationReason || '',
+          questions: parsedJson.questions || []
         };
 
         if (!triageResult.isInfrastructureHazard) {
@@ -129,9 +162,13 @@ Please classify the image and extract:
       } catch (geminiError) {
         console.error('Gemini Standalone Triage request failed, using local fallback:', geminiError);
         triageResult = getFallbackTriage(undefined, image);
+        triageResult.clarificationNeeded = false;
+        triageResult.confidence = 100;
       }
     } else {
       triageResult = getFallbackTriage(undefined, image);
+      triageResult.clarificationNeeded = false;
+      triageResult.confidence = 100;
     }
 
     res.json({ triageResult });
@@ -211,6 +248,9 @@ function getDynamicFallbackPredictions(reports: any[]) {
   const crewOvertimeSavedVal = 18200 + resolvedReportsCount * 800;
   const totalSavingsVal = claimsMitigatedVal + crewOvertimeSavedVal;
 
+  const avgLat = (arr: any[]) => arr.length ? arr.reduce((sum, r) => sum + r.latitude, 0) / arr.length : 37.7749;
+  const avgLng = (arr: any[]) => arr.length ? arr.reduce((sum, r) => sum + r.longitude, 0) / arr.length : -122.4194;
+
   return {
     predictions: [
       {
@@ -219,7 +259,11 @@ function getDynamicFallbackPredictions(reports: any[]) {
         risk: potholeRisk,
         percentage: potholePercentage,
         trigger: `Thermal cycle and active count of ${potholes.length} logged potholes across the grid.`,
-        suggestion: `Pre-load asphalt crews in ${topWard} to intercept expanding pavement splits.`
+        suggestion: `Pre-load asphalt crews in ${topWard} to intercept expanding pavement splits.`,
+        latitude: avgLat(potholes) + (Math.random() - 0.5) * 0.01,
+        longitude: avgLng(potholes) + (Math.random() - 0.5) * 0.01,
+        estimatedTime: 'within 14 days',
+        reason: `Repeated pothole reports in ${topWard} and surrounding roads show similar deterioration.`
       },
       {
         id: 'water',
@@ -227,7 +271,11 @@ function getDynamicFallbackPredictions(reports: any[]) {
         risk: waterRisk,
         percentage: waterPercentage,
         trigger: `Rainfall forecast combined with ${waterLeaking.length} open drainage leaks verified.`,
-        suggestion: `Deploy drainage vacuums and clear catch-basins near reported water hotspots.`
+        suggestion: `Deploy drainage vacuums and clear catch-basins near reported water hotspots.`,
+        latitude: avgLat(waterLeaking) + (Math.random() - 0.5) * 0.01,
+        longitude: avgLng(waterLeaking) + (Math.random() - 0.5) * 0.01,
+        estimatedTime: 'within 3 days',
+        reason: 'Current weather conditions and existing leaks suggest an imminent backflow incident.'
       },
       {
         id: 'lighting',
@@ -235,7 +283,11 @@ function getDynamicFallbackPredictions(reports: any[]) {
         risk: lightingRisk,
         percentage: lightingPercentage,
         trigger: `Cumulative active night hours. ViaPulse has ${lighting.length} unresolved light outages.`,
-        suggestion: `Preemptively replace lamp bulbs near high density dark zones reported in the hub.`
+        suggestion: `Preemptively replace lamp bulbs near high density dark zones reported in the hub.`,
+        latitude: avgLat(lighting) + (Math.random() - 0.5) * 0.01,
+        longitude: avgLng(lighting) + (Math.random() - 0.5) * 0.01,
+        estimatedTime: 'within 7 days',
+        reason: 'Multiple localized light failures indicate regional grid or bulb age issues.'
       }
     ],
     alertBanner: {
@@ -286,7 +338,8 @@ INSTRUCTIONS:
 4. Provide a professional, realistic Forecast Cause ('trigger') and Optimal Interception strategy ('suggestion') for each prediction.
 5. Create a dynamic Alert Banner reflecting the overall highest-priority ward or category risk based on the active reports.
 6. Calculate or estimate "savings" (e.g. Claims Mitigated, Crew Overtime Saved, SLA Breach Reduction, Total Estimated Savings) based on the number of resolved complaints. (e.g., resolved potholes prevent automobile liability claims, resolved light issues save safety incidents).
-7. Return confidence level (e.g., "94.8%") and primary grounding (e.g., "NOAA Weather & ViaPulse Ledger").`;
+7. Return confidence level (e.g., "94.8%") and primary grounding (e.g., "NOAA Weather & ViaPulse Ledger").
+8. For each prediction, include 'latitude' and 'longitude' (based on a cluster or average of the active reports for that category, or a plausible location within the affected ward), 'estimatedTime' (e.g., "within 14 days"), and 'reason' (a 1-2 sentence explanation of why this hotspot was chosen, based on the reports data provided).`;
 
       try {
         const response = await ai.models.generateContent({
@@ -307,9 +360,13 @@ INSTRUCTIONS:
                       risk: { type: Type.STRING },
                       percentage: { type: Type.INTEGER },
                       trigger: { type: Type.STRING },
-                      suggestion: { type: Type.STRING }
+                      suggestion: { type: Type.STRING },
+                      latitude: { type: Type.NUMBER },
+                      longitude: { type: Type.NUMBER },
+                      estimatedTime: { type: Type.STRING },
+                      reason: { type: Type.STRING }
                     },
-                    required: ['id', 'hazard', 'risk', 'percentage', 'trigger', 'suggestion']
+                    required: ['id', 'hazard', 'risk', 'percentage', 'trigger', 'suggestion', 'latitude', 'longitude', 'estimatedTime', 'reason']
                   }
                 },
                 alertBanner: {
@@ -371,7 +428,8 @@ app.post('/api/profiles', async (req, res) => {
 // 3b. Compile live leaderboard standings
 app.get('/api/leaderboard', async (req, res) => {
   try {
-    const standings = await db.compileLeaderboard();
+    const timeframe = (req.query.timeframe as 'all' | 'weekly' | 'monthly') || 'all';
+    const standings = await db.compileLeaderboard(timeframe);
     res.json(standings);
   } catch (error) {
     console.error('Error compiling leaderboard:', error);
@@ -379,9 +437,8 @@ app.get('/api/leaderboard', async (req, res) => {
   }
 });
 
-// 4. Submit a new report with automated Triage, Geolocation Ward, and Deduplication
 app.post('/api/reports', async (req, res) => {
-  const { image, latitude, longitude, reporterName, reporterEmail, description, category, severity, ordinance } = req.body;
+  const { image, latitude, longitude, reporterName, reporterEmail, description, category, severity, ordinance, preferredLanguage } = req.body;
 
   if (!image || !latitude || !longitude) {
     return res.status(400).json({ error: 'Missing required parameters (image, latitude, longitude)' });
@@ -391,21 +448,16 @@ app.post('/api/reports', async (req, res) => {
   const emailOfReporter = reporterEmail || '';
   const latNum = parseFloat(latitude);
   const lngNum = parseFloat(longitude);
+  const langPref = preferredLanguage || 'Auto Detect';
 
   try {
     let triageResult;
 
-    if (category && severity && description) {
-      console.log('Using pre-triaged client-provided fields...');
-      triageResult = {
-        isInfrastructureHazard: true,
-        category: category.toLowerCase() as Category,
-        severity: severity.toLowerCase() as Severity,
-        description: description,
-        ordinance: ordinance || 'Municipal Ordinance Code Section 14.2'
-      };
-    } else if (ai) {
-      console.log('Sending report to Gemini for Triage...');
+    if (!ai) {
+      console.log('No AI configured, using local fallback...');
+      triageResult = getFallbackTriage(description, image);
+    } else {
+      console.log('Sending report to Gemini for Triage & Translation...');
       const parsed = parseDataUrl(image);
       const imagePart = {
         inlineData: {
@@ -416,7 +468,7 @@ app.post('/api/reports', async (req, res) => {
 
       let prompt = `Analyze this image to detect public infrastructure issues for a civic utility app called ViaPulse.`;
       if (description) {
-        prompt += `\n\nUser-provided description of the issue to aid classification: "${description}"\nUse this description in tandem with the visual content of the image to ensure accurate classification.`;
+        prompt += `\n\nUser-provided description of the issue to aid classification: "${description}"\nThe user's preferred language for translation is: "${langPref}".\nUse this description in tandem with the visual content of the image to ensure accurate classification.`;
       }
       prompt += `\n\nCRITICAL SAFETY & REJECTION RULES:
 1. REJECT SELFIES/PORTRAITS: If the image is a selfie, portrait, contains people as the primary subject, or shows faces clearly, you MUST set isInfrastructureHazard to false.
@@ -431,8 +483,11 @@ Please classify the image and extract:
 1. isInfrastructureHazard: boolean (Strictly false if it violates any of the rejection rules above; true only if it is a real municipal/civic public infrastructure issue).
 2. category: string (Must be exactly one of: 'pothole', 'garbage', 'water', 'lighting').
 3. severity: string (Must be exactly one of: 'low', 'medium', 'high').
-4. description: string (A professional, concise 2-3 sentence description detailing the issue and hazard risks, or explaining the rejection reason. Use the user's description details if available).
-5. municipalOrdinanceCitations: string (An official-sounding mock municipal code section relevant to this hazard, e.g. "Municipal Code Section 12.4 - Public Sidewalk Maintenance" or "Utility Water Protection Act Section 8").`;
+4. priority: string (Must be exactly one of: 'low', 'medium', 'high', 'critical' based on safety impact).
+5. detectedLanguage: string (The language the user provided their description in, e.g. 'English', 'Hindi', etc. If none, guess 'English').
+6. translatedDescription: string (The user's description accurately translated into English while preserving original wording meaning).
+7. improvedEnglishSummary: string (A professional, concise 2-3 sentence English summary detailing the issue and hazard risks).
+8. municipalOrdinanceCitations: string (An official-sounding mock municipal code section relevant to this hazard).`;
 
       try {
         const response = await ai.models.generateContent({
@@ -446,10 +501,13 @@ Please classify the image and extract:
                 isInfrastructureHazard: { type: Type.BOOLEAN },
                 category: { type: Type.STRING },
                 severity: { type: Type.STRING },
-                description: { type: Type.STRING },
+                priority: { type: Type.STRING },
+                detectedLanguage: { type: Type.STRING },
+                translatedDescription: { type: Type.STRING },
+                improvedEnglishSummary: { type: Type.STRING },
                 municipalOrdinanceCitations: { type: Type.STRING }
               },
-              required: ['isInfrastructureHazard', 'category', 'severity', 'description', 'municipalOrdinanceCitations']
+              required: ['isInfrastructureHazard', 'category', 'severity', 'priority', 'detectedLanguage', 'translatedDescription', 'improvedEnglishSummary', 'municipalOrdinanceCitations']
             }
           }
         });
@@ -459,7 +517,11 @@ Please classify the image and extract:
           isInfrastructureHazard: parsedJson.isInfrastructureHazard ?? true,
           category: (parsedJson.category || 'pothole').toLowerCase() as Category,
           severity: (parsedJson.severity || 'medium').toLowerCase() as Severity,
-          description: parsedJson.description || 'Infrastructure hazard reported.',
+          priority: (parsedJson.priority || 'medium').toLowerCase(),
+          detectedLanguage: parsedJson.detectedLanguage || 'English',
+          translatedDescription: parsedJson.translatedDescription || parsedJson.improvedEnglishSummary || description,
+          improvedEnglishSummary: parsedJson.improvedEnglishSummary || parsedJson.translatedDescription || description,
+          description: parsedJson.translatedDescription || parsedJson.improvedEnglishSummary || description, // Use translated as primary
           ordinance: parsedJson.municipalOrdinanceCitations || 'Municipal Ordinance Code Section 14.2'
         };
 
@@ -472,9 +534,6 @@ Please classify the image and extract:
         console.error('Gemini Triage request failed, using local fallback:', geminiError);
         triageResult = getFallbackTriage(description, image);
       }
-    } else {
-      // Offline fallback
-      triageResult = getFallbackTriage(description, image);
     }
 
     // Now determine the ward and local contact info based on latitude/longitude
@@ -543,6 +602,11 @@ ${nameOfReporter} and the ViaPulse Civic Ombudsman Agent`;
       severity: triageResult.severity,
       status: 'REPORTED',
       description: triageResult.description,
+      originalDescription: description,
+      translatedDescription: triageResult.translatedDescription,
+      detectedLanguage: triageResult.detectedLanguage,
+      priority: triageResult.priority,
+      summary: triageResult.improvedEnglishSummary,
       imageUrl: image, // save image directly
       reporterName: nameOfReporter,
       reporterEmail: emailOfReporter,
@@ -1063,7 +1127,11 @@ function getFallbackTriage(userDescription?: string, image?: string) {
     isInfrastructureHazard: true,
     category: cat,
     severity: sev,
-    description: finalDescription,
+    priority: sev,
+    detectedLanguage: 'English (Fallback)',
+    translatedDescription: finalDescription,
+    improvedEnglishSummary: finalDescription,
+    description: finalDescription, // translated description
     ordinance: `Municipal Code Section ${Math.floor(Math.random() * 20) + 10}.5 - Public Health and Safety`
   };
 }

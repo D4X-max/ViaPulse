@@ -18,6 +18,7 @@ import ReportHazard from './components/ReportHazard';
 import TrackingHub from './components/TrackingHub';
 import AnalyticsDashboard from './components/AnalyticsDashboard';
 import FloatingChatbot from './components/FloatingChatbot';
+import ProfileSettings from './components/ProfileSettings';
 
 export default function App() {
   const [reports, setReports] = useState<Report[]>([]);
@@ -385,8 +386,9 @@ export default function App() {
                 <img
                   src={user.photoURL || `https://api.dicebear.com/7.x/adventurer/svg?seed=${user.email}`}
                   alt={user.displayName || 'User'}
-                  className="w-7 h-7 rounded-full border border-indigo-100"
+                  className="w-7 h-7 rounded-full border border-indigo-100 cursor-pointer hover:ring-2 ring-indigo-500 transition-all"
                   referrerPolicy="no-referrer"
+                  onClick={() => setActiveTab('profile')}
                 />
                 <button
                   onClick={handleSignOut}
@@ -506,20 +508,25 @@ export default function App() {
             <div className="w-8 h-8 rounded-full border-2 border-indigo-600 border-t-transparent animate-spin"></div>
           ) : user ? (
             <div className="flex items-center gap-2 border-l border-gray-100 pl-3">
-              <img
-                src={user.photoURL || `https://api.dicebear.com/7.x/adventurer/svg?seed=${user.email}`}
-                alt={user.displayName || 'User'}
-                className="w-9 h-9 rounded-full border border-indigo-100"
-                referrerPolicy="no-referrer"
-              />
-              <div className="flex flex-col text-left">
-                <span className="text-xs font-semibold text-gray-800 leading-tight">
-                  {user.displayName || 'Sentinel'}
-                </span>
-                <span className="text-[10px] text-gray-400 leading-tight">
-                  {user.email}
-                </span>
-              </div>
+              <button 
+                onClick={() => setActiveTab('profile')}
+                className="flex items-center gap-2 text-left hover:bg-slate-50 p-1 rounded-lg transition-colors cursor-pointer"
+              >
+                <img
+                  src={user.photoURL || `https://api.dicebear.com/7.x/adventurer/svg?seed=${user.email}`}
+                  alt={user.displayName || 'User'}
+                  className="w-9 h-9 rounded-full border border-indigo-100"
+                  referrerPolicy="no-referrer"
+                />
+                <div className="flex flex-col">
+                  <span className="text-xs font-semibold text-gray-800 leading-tight">
+                    {user.displayName || 'Sentinel'}
+                  </span>
+                  <span className="text-[10px] text-gray-400 leading-tight">
+                    {user.email}
+                  </span>
+                </div>
+              </button>
               <button
                 onClick={handleSignOut}
                 className="p-2 rounded-lg text-gray-400 hover:text-rose-600 hover:bg-rose-50 transition-colors"
@@ -580,10 +587,10 @@ export default function App() {
         </div>
       ) : (
         /* 3. Main Workspace Grid - Split Map Layout */
-        <main className={`flex-1 grid grid-cols-1 ${activeTab === 'tracking' ? '' : 'lg:grid-cols-12'} gap-6 p-4 md:p-6 lg:p-8 pt-8 md:pt-8 lg:pt-8 max-w-[1600px] mx-auto w-full overflow-hidden`}>
+        <main className={`flex-1 grid grid-cols-1 ${['tracking', 'league'].includes(activeTab) ? '' : 'lg:grid-cols-12'} gap-6 p-4 md:p-6 lg:p-8 pt-8 md:pt-8 lg:pt-8 max-w-[1600px] mx-auto w-full overflow-hidden`}>
           
           {/* TAB PANEL WORKSPACE: Occupies 7 columns on large desktop, or 12 columns if map is hidden */}
-          <section className={`${activeTab === 'tracking' ? 'lg:col-span-12' : 'lg:col-span-7'} bg-white rounded-2xl border border-gray-100 shadow-sm p-4 md:p-6 flex flex-col min-h-[450px] lg:min-h-0`}>
+          <section className={`${['tracking', 'league'].includes(activeTab) ? 'lg:col-span-12' : 'lg:col-span-7'} bg-white rounded-2xl border border-gray-100 shadow-sm p-4 md:p-6 flex flex-col min-h-[450px] lg:min-h-0`}>
             <AnimatePresence mode="wait">
               {activeTab === 'home' && (
                 <motion.div
@@ -688,11 +695,30 @@ export default function App() {
                   <AnalyticsDashboard reports={reports} userRole={userRole} />
                 </motion.div>
               )}
+
+              {activeTab === 'profile' && (
+                <motion.div
+                  key="profile-tab"
+                  initial={{ opacity: 0, x: -10 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -10 }}
+                  transition={{ duration: 0.2 }}
+                  className="h-full overflow-y-auto pr-1"
+                >
+                  <ProfileSettings 
+                    user={user} 
+                    showToast={showToast} 
+                    onProfileUpdate={() => {
+                      fetchData(true);
+                    }} 
+                  />
+                </motion.div>
+              )}
             </AnimatePresence>
           </section>
 
           {/* INTERACTIVE MAP PANEL: Occupies 5 columns on large desktop */}
-          {activeTab !== 'tracking' && (
+          {!['tracking', 'league'].includes(activeTab) && (
             <section className="lg:col-span-5 h-[350px] sm:h-[450px] lg:h-[75vh] min-h-[350px] flex flex-col sticky top-24">
               <ReportMap
                 reports={reports}

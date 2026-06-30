@@ -97,6 +97,7 @@ export default function ReportHazard({
   const [image, setImage] = useState<string | null>(null);
   const [isCameraActive, setIsCameraActive] = useState(false);
   const [description, setDescription] = useState('');
+  const [preferredLanguage, setPreferredLanguage] = useState('Auto Detect');
   const [reporterName, setReporterName] = useState(user?.displayName || user?.email?.split('@')[0] || '');
   const [isScanning, setIsScanning] = useState(false);
   const [scanProgress, setScanProgress] = useState(0);
@@ -109,13 +110,39 @@ export default function ReportHazard({
   const [showTriageCard, setShowTriageCard] = useState(false);
   const [facingMode, setFacingMode] = useState<'environment' | 'user'>('environment');
 
+  const [clarificationNeeded, setClarificationNeeded] = useState(false);
+  const [clarificationQuestions, setClarificationQuestions] = useState<{id: string, text: string, options: string[]}[]>([]);
+  const [clarificationAnswers, setClarificationAnswers] = useState<Record<string, string>>({});
+  const [clarificationReason, setClarificationReason] = useState<string>('');
+  const [isRefining, setIsRefining] = useState(false);
+
   // Point 3: Intermediary AI Confirmation Gate state
   const [showConfirmationModal, setShowConfirmationModal] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [addressStr, setAddressStr] = useState<string>('');
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  useEffect(() => {
+    if (newReportLocation) {
+      fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${newReportLocation.latitude}&lon=${newReportLocation.longitude}`)
+        .then(res => res.json())
+        .then(data => {
+          if (data && data.display_name) {
+            setAddressStr(data.display_name);
+          } else {
+            setAddressStr(`${newReportLocation.latitude.toFixed(5)}, ${newReportLocation.longitude.toFixed(5)}`);
+          }
+        })
+        .catch(() => {
+          setAddressStr(`${newReportLocation.latitude.toFixed(5)}, ${newReportLocation.longitude.toFixed(5)}`);
+        });
+    } else {
+      setAddressStr('');
+    }
+  }, [newReportLocation]);
 
   useEffect(() => {
     if (user) {
@@ -203,6 +230,49 @@ export default function ReportHazard({
     setIsScanning(true);
     setScanProgress(15);
     
+    // Automatically set location to current GPS
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          setNewReportLocation({ latitude: pos.coords.latitude, longitude: pos.coords.longitude });
+          showToast('success', 'Current GPS Coordinates locked in automatically.');
+        },
+        (error) => {
+          console.warn("Geolocation error:", error);
+          // Fallback to IP based location if GPS is denied or fails
+          fetch('https://ipapi.co/json/')
+            .then(res => res.json())
+            .then(data => {
+              if (data && data.latitude && data.longitude) {
+                setNewReportLocation(prev => prev || { latitude: data.latitude, longitude: data.longitude });
+                showToast('success', 'Location estimated via network.');
+              } else {
+                throw new Error("Invalid IP location");
+              }
+            })
+            .catch(() => {
+              setNewReportLocation(prev => prev || { latitude: 37.7749 + (Math.random() - 0.5) * 0.02, longitude: -122.4194 + (Math.random() - 0.5) * 0.02 });
+              showToast('info', 'Location access failed. Placing marker on default center.');
+            });
+        },
+        { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+      );
+    } else {
+      fetch('https://ipapi.co/json/')
+        .then(res => res.json())
+        .then(data => {
+          if (data && data.latitude && data.longitude) {
+            setNewReportLocation(prev => prev || { latitude: data.latitude, longitude: data.longitude });
+            showToast('success', 'Location estimated via network.');
+          } else {
+            throw new Error("Invalid IP location");
+          }
+        })
+        .catch(() => {
+          setNewReportLocation(prev => prev || { latitude: 37.7749 + (Math.random() - 0.5) * 0.02, longitude: -122.4194 + (Math.random() - 0.5) * 0.02 });
+        });
+    }
+
     // Simulate smooth progress updates while the API is thinking
     let progress = 15;
     const progressInterval = setInterval(() => {
@@ -229,17 +299,23 @@ export default function ReportHazard({
         setIsScanning(false);
         const triage = data.triageResult;
         
-        // Auto-fill description & category
-        setDescription(triage.description);
-        setAiCategory(triage.category);
-        setAiSeverity(triage.severity);
-        setAiOrdinance(triage.ordinance);
+        if (triage.clarificationNeeded && triage.questions && triage.questions.length > 0) {
+          setClarificationNeeded(true);
+          setClarificationQuestions(triage.questions);
+          setClarificationReason(triage.clarificationReason || 'I need a few details before submitting.');
+          setClarificationAnswers({});
+        } else {
+          // Auto-fill description & category
+          setDescription(triage.description);
+          setAiCategory(triage.category);
+          setAiSeverity(triage.severity);
+          setAiOrdinance(triage.ordinance);
 
-        setShowTriageCard(true);
-        if (!newReportLocation) {
-          setNewReportLocation({ latitude: 37.7749 + (Math.random() - 0.5) * 0.02, longitude: -122.4194 + (Math.random() - 0.5) * 0.02 });
+          setShowTriageCard(true);
+          showToast('success', `AI successfully categorized as ${triage.category.toUpperCase()}`);
         }
-        showToast('success', `AI successfully categorized as ${triage.category.toUpperCase()}`);
+        
+        setNewReportLocation(prev => prev || { latitude: 37.7749 + (Math.random() - 0.5) * 0.02, longitude: -122.4194 + (Math.random() - 0.5) * 0.02 });
       }, 500);
 
     } catch (err: any) {
@@ -254,27 +330,39 @@ export default function ReportHazard({
       setAiSeverity(null);
       setAiOrdinance(null);
       setShowTriageCard(false);
-      if (!newReportLocation) {
-        setNewReportLocation({ latitude: 37.7749, longitude: -122.4194 });
-      }
+      setClarificationNeeded(false);
+      setNewReportLocation(prev => prev || { latitude: 37.7749, longitude: -122.4194 });
     }
   };
 
-  const shareGPSLocation = () => {
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (pos) => {
-          setNewReportLocation({ latitude: pos.coords.latitude, longitude: pos.coords.longitude });
-          showToast('success', 'Current GPS Coordinates locked in.');
-        },
-        () => {
-          // Fallback to random SF
-          setNewReportLocation({ latitude: 37.7749, longitude: -122.4194 });
-          showToast('info', 'GPS failed. Placing marker on default center.');
-        }
-      );
-    } else {
-      setNewReportLocation({ latitude: 37.7749, longitude: -122.4194 });
+  const handleSubmitClarification = async () => {
+    setIsRefining(true);
+    try {
+      const response = await fetch('/api/triage', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ image, clarificationAnswers })
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Failed to refine triage');
+      
+      const triage = data.triageResult;
+      
+      setDescription(triage.description);
+      setAiCategory(triage.category);
+      setAiSeverity(triage.severity);
+      setAiOrdinance(triage.ordinance);
+
+      setClarificationNeeded(false);
+      setShowTriageCard(true);
+      showToast('success', 'Report finalized with your input.');
+    } catch (err: any) {
+      console.error('Clarification error:', err);
+      showToast('error', 'Failed to refine. Proceeding with current data.');
+      setClarificationNeeded(false);
+      setShowTriageCard(true); // Fallback to current state
+    } finally {
+      setIsRefining(false);
     }
   };
 
@@ -318,7 +406,8 @@ export default function ReportHazard({
           description: description,
           category: aiCategory,
           severity: aiSeverity,
-          ordinance: aiOrdinance
+          ordinance: aiOrdinance,
+          preferredLanguage: preferredLanguage
         })
       });
 
@@ -343,6 +432,19 @@ export default function ReportHazard({
       showToast('error', err.message || 'Verification Error: Hazard context mismatch');
       setIsSubmitting(false);
     }
+  };
+
+  const handleReset = () => {
+    setImage(null);
+    setIsCameraActive(false);
+    setDescription('');
+    setAiCategory(null);
+    setAiSeverity(null);
+    setAiOrdinance(null);
+    setShowTriageCard(false);
+    setShowConfirmationModal(false);
+    setIsSubmitting(false);
+    setNewReportLocation(null);
   };
 
   return (
@@ -469,6 +571,50 @@ export default function ReportHazard({
         </AnimatePresence>
       </div>
 
+      {clarificationNeeded && (
+        <div className="bg-white rounded-2xl border border-amber-200 shadow-sm p-4.5 flex flex-col gap-4">
+          <div className="flex flex-col gap-2">
+            <span className="text-[10px] font-bold text-amber-600 font-mono uppercase tracking-widest block">
+              ⚠️ AI Needs Clarification
+            </span>
+            <p className="text-sm text-slate-800 font-medium">
+              {clarificationReason}
+            </p>
+          </div>
+
+          <div className="flex flex-col gap-4">
+            {clarificationQuestions.map((q, i) => (
+              <div key={q.id || i} className="flex flex-col gap-2">
+                <label className="text-xs font-bold text-slate-700">{q.text}</label>
+                <div className="flex flex-wrap gap-2">
+                  {q.options.map(opt => (
+                    <button
+                      key={opt}
+                      onClick={() => setClarificationAnswers(prev => ({ ...prev, [q.id]: opt }))}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                        clarificationAnswers[q.id] === opt 
+                          ? 'bg-amber-100 text-amber-900 border border-amber-300' 
+                          : 'bg-slate-50 text-slate-600 border border-slate-200 hover:bg-slate-100'
+                      }`}
+                    >
+                      {opt}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <button
+            onClick={handleSubmitClarification}
+            disabled={isRefining}
+            className="mt-2 w-full py-2.5 bg-slate-900 hover:bg-slate-800 text-white font-bold text-sm rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {isRefining ? 'Refining...' : 'Continue'}
+          </button>
+        </div>
+      )}
+
       {/* Point 2: Asynchronous Triage Block removed per user request */}
 
 
@@ -506,29 +652,37 @@ export default function ReportHazard({
             )}
 
             {/* GPS location sharing trigger */}
-            <div className="flex items-center gap-3">
-              <button
-                onClick={shareGPSLocation}
-                className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 border border-gray-200 text-gray-700 rounded-xl text-xs font-bold flex items-center gap-2 transition-all cursor-pointer"
-              >
-                <Navigation className="w-3.5 h-3.5 text-indigo-600 stroke-[2.2]" />
-                Share Current GPS Location
-              </button>
+            <div className="flex items-center gap-3 w-full overflow-hidden">
               {newReportLocation ? (
-                <div className="flex items-center gap-1.5 text-xs text-gray-500 font-mono font-medium">
-                  <MapPin className="w-3.5 h-3.5 text-emerald-500" />
-                  <span>{newReportLocation.latitude.toFixed(5)}, {newReportLocation.longitude.toFixed(5)}</span>
+                <div className="flex items-center gap-1.5 text-xs text-gray-500 font-medium bg-slate-50 px-3 py-2 rounded-lg border border-slate-100 w-full overflow-hidden">
+                  <MapPin className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                  <span className="truncate flex-1 min-w-0">{addressStr || 'Locating address...'}</span>
                 </div>
               ) : (
                 <span className="text-[10px] text-gray-400 font-mono italic">
-                  *Coordinates unset. Drag and drop pin on map or select GPS button.
+                  *Coordinates unset. Drag and drop pin on map.
                 </span>
               )}
             </div>
 
             {/* Markdown descriptive text area */}
             <div className="flex flex-col gap-1.5">
-              <label className="text-xs font-bold text-gray-700">Detailed Description (Markdown Enabled)</label>
+              <div className="flex justify-between items-center">
+                <label className="text-xs font-bold text-gray-700">Detailed Description</label>
+                <select
+                  value={preferredLanguage}
+                  onChange={(e) => setPreferredLanguage(e.target.value)}
+                  className="text-xs bg-slate-100 border border-slate-200 rounded-md px-2 py-1 text-slate-700 focus:outline-none focus:border-indigo-500"
+                >
+                  <option value="Auto Detect">Auto Detect</option>
+                  <option value="English">English</option>
+                  <option value="Hindi">Hindi</option>
+                  <option value="Kannada">Kannada</option>
+                  <option value="Tamil">Tamil</option>
+                  <option value="Telugu">Telugu</option>
+                  <option value="Malayalam">Malayalam</option>
+                </select>
+              </div>
               <textarea
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
@@ -552,14 +706,24 @@ export default function ReportHazard({
             </div>
 
             {/* Submit */}
-            <button
-              onClick={triggerSubmitForm}
-              disabled={isSubmitting}
-              className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white font-extrabold text-xs rounded-xl shadow-lg shadow-indigo-100 transition-all flex items-center justify-center gap-1.5 group cursor-pointer"
-            >
-              <Send className="w-3.5 h-3.5" />
-              {isSubmitting ? 'Transmitting Context to Ledger...' : 'Transmit Report to Multi-Agent Node'}
-            </button>
+            <div className="flex gap-2">
+              <button
+                onClick={handleReset}
+                type="button"
+                disabled={isSubmitting}
+                className="px-4 py-3 bg-white hover:bg-slate-50 border border-gray-200 text-gray-700 font-extrabold text-xs rounded-xl transition-all flex items-center justify-center cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={triggerSubmitForm}
+                disabled={isSubmitting}
+                className="flex-1 py-3 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white font-extrabold text-xs rounded-xl shadow-lg shadow-indigo-100 transition-all flex items-center justify-center gap-1.5 group cursor-pointer"
+              >
+                <Send className="w-3.5 h-3.5" />
+                {isSubmitting ? 'Transmitting Context...' : 'Transmit Report to Multi-Agent Node'}
+              </button>
+            </div>
           </div>
 
           {/* Point 3: AI Confirmation Screen Modal (Intermediary Gate State) */}

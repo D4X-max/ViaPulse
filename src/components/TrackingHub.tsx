@@ -605,9 +605,30 @@ export default function TrackingHub({
                         {report.ward || 'Unknown'}
                       </span>
                     </div>
-                    <p className="text-xs text-gray-800 font-medium leading-normal mt-1.5 line-clamp-2">
-                      {report.description || 'No description provided.'}
-                    </p>
+                    {report.translatedDescription && report.originalDescription && report.translatedDescription !== report.originalDescription ? (
+                      <div className="mt-1.5 flex flex-col gap-1.5">
+                        <div className="bg-slate-50 p-1.5 rounded-lg border border-slate-100">
+                          <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest block mb-0.5">
+                            Original ({report.detectedLanguage || 'Auto'})
+                          </span>
+                          <p className="text-xs text-gray-800 font-medium leading-normal line-clamp-2">
+                            {report.originalDescription}
+                          </p>
+                        </div>
+                        <div className="bg-indigo-50/50 p-1.5 rounded-lg border border-indigo-50/50">
+                          <span className="text-[9px] font-bold text-indigo-400 uppercase tracking-widest block mb-0.5">
+                            Translated (English)
+                          </span>
+                          <p className="text-xs text-gray-800 font-medium leading-normal line-clamp-2">
+                            {report.translatedDescription}
+                          </p>
+                        </div>
+                      </div>
+                    ) : (
+                      <p className="text-xs text-gray-800 font-medium leading-normal mt-1.5 line-clamp-2">
+                        {report.description || 'No description provided.'}
+                      </p>
+                    )}
                   </div>
                 </div>
 

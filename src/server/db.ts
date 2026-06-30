@@ -409,47 +409,89 @@ class LocalDB {
     return profilesList;
   }
 
-  public async compileLeaderboard() {
+  public async compileLeaderboard(timeframe: 'all' | 'weekly' | 'monthly' = 'all') {
     const reports = await this.getReports();
     const profiles = await this.getProfiles();
 
-    const usersMap: Record<string, { name: string; email: string; reportCount: number; upvoteCount: number }> = {};
+    const now = Date.now();
+    const getCutoff = () => {
+      if (timeframe === 'weekly') return now - 7 * 24 * 60 * 60 * 1000;
+      if (timeframe === 'monthly') return now - 30 * 24 * 60 * 60 * 1000;
+      return 0;
+    };
+    const cutoff = getCutoff();
+
+    const usersMap: Record<string, { name: string; email: string; reportCount: number; upvoteCount: number; resolvedCount: number; allTimeReportCount: number; allTimeUpvoteCount: number; allTimeResolvedCount: number; }> = {};
+
+    const isGovUser = (email: string) => {
+      return email.endsWith('.gov') || email === 'admin@city.gov' || email === 'ombudsman@viapulse.gov';
+    };
 
     (profiles || []).forEach(p => {
-      if (p && p.email) {
+      if (p && p.email && !isGovUser(p.email)) {
         usersMap[p.email] = {
           name: p.displayName || p.email.split('@')[0] || 'Citizen',
           email: p.email,
           reportCount: 0,
-          upvoteCount: 0
+          upvoteCount: 0,
+          resolvedCount: 0,
+          allTimeReportCount: 0,
+          allTimeUpvoteCount: 0,
+          allTimeResolvedCount: 0
         };
       }
     });
 
     (reports || []).forEach(r => {
       const email = r?.reporterEmail || '';
-      if (!email) return;
+      if (!email || isGovUser(email)) return;
 
       if (!usersMap[email]) {
         usersMap[email] = {
           name: r?.reporterName || email.split('@')[0] || 'Citizen',
           email,
           reportCount: 0,
-          upvoteCount: 0
+          upvoteCount: 0,
+          resolvedCount: 0,
+          allTimeReportCount: 0,
+          allTimeUpvoteCount: 0,
+          allTimeResolvedCount: 0
         };
       }
 
-      usersMap[email].reportCount += 1;
-      usersMap[email].upvoteCount += (r?.upvotes || 0);
+      const reportTime = new Date(r.createdAt).getTime();
+      const isWithinTimeframe = reportTime >= cutoff;
+      const isResolved = r.status === 'RESOLVED' || r.status === 'CLOSED_VERIFIED';
+
+      // All-time stats (for badges)
+      usersMap[email].allTimeReportCount += 1;
+      usersMap[email].allTimeUpvoteCount += (r?.upvotes || 0);
+      if (isResolved) usersMap[email].allTimeResolvedCount += 1;
+
+      // Timeframe stats (for points and rankings)
+      if (isWithinTimeframe) {
+        usersMap[email].reportCount += 1;
+        usersMap[email].upvoteCount += (r?.upvotes || 0);
+        if (isResolved) usersMap[email].resolvedCount += 1;
+      }
     });
 
     const standings = Object.values(usersMap).map(u => {
       const points = ((u?.reportCount || 0) * 50) + ((u?.upvoteCount || 0) * 10);
+      const allTimePoints = ((u?.allTimeReportCount || 0) * 50) + ((u?.allTimeUpvoteCount || 0) * 10);
+      
       const badges: string[] = [];
       
-      if ((u?.reportCount || 0) >= 5) badges.push('Road Hero 🏆');
-      if ((u?.upvoteCount || 0) >= 15) badges.push('Civic Sentinel 🌟');
-      if (points >= 200) badges.push('Clean City Champion 💪');
+      // Existing Badges
+      if ((u?.allTimeReportCount || 0) >= 5) badges.push('Road Hero 🏆');
+      if ((u?.allTimeUpvoteCount || 0) >= 15) badges.push('Civic Sentinel 🌟');
+      if (allTimePoints >= 200) badges.push('Clean City Champion 💪');
+
+      // New Resolution Badges
+      if ((u?.allTimeResolvedCount || 0) >= 1) badges.push('First Resolution 🥉');
+      if ((u?.allTimeResolvedCount || 0) >= 5) badges.push('Community Fixer 🥈');
+      if ((u?.allTimeResolvedCount || 0) >= 10) badges.push('Neighborhood Guardian 🥇');
+      if ((u?.allTimeResolvedCount || 0) >= 25) badges.push('City Hero 🏆');
 
       const profile = (profiles || []).find(p => p?.email === u?.email);
       const name = profile?.displayName || u?.name || 'Anonymous';
@@ -460,7 +502,12 @@ class LocalDB {
         email: u?.email || '',
         reportCount: u?.reportCount || 0,
         upvoteCount: u?.upvoteCount || 0,
+        resolvedCount: u?.resolvedCount || 0,
+        allTimeReportCount: u?.allTimeReportCount || 0,
+        allTimeUpvoteCount: u?.allTimeUpvoteCount || 0,
+        allTimeResolvedCount: u?.allTimeResolvedCount || 0,
         points,
+        allTimePoints,
         badges,
         photoURL
       };
@@ -631,6 +678,31 @@ class LocalDB {
       }
     }
     return updatedReport;
+  }
+
+  public async clearAll(): Promise<void> {
+    this.reports = [];
+    this.profiles = [];
+    localReportsCache.length = 0;
+    localProfilesCache.length = 0;
+    this.saveLocal();
+    this.saveProfilesLocal();
+
+    if (isFirebaseConnected && firestoreDb) {
+      try {
+        const reportsSnap = await firestoreDb.collection('reports').get();
+        let batch = firestoreDb.batch();
+        reportsSnap.docs.forEach((doc: any) => batch.delete(doc.ref));
+        await batch.commit();
+
+        const profilesSnap = await firestoreDb.collection('profiles').get();
+        batch = firestoreDb.batch();
+        profilesSnap.docs.forEach((doc: any) => batch.delete(doc.ref));
+        await batch.commit();
+      } catch (err) {
+        console.warn('Failed to clear firestore collections:', err);
+      }
+    }
   }
 
   public async deleteReport(id: string): Promise<boolean> {

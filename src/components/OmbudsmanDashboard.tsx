@@ -294,7 +294,7 @@ export default function OmbudsmanDashboard({
                     </h4>
 
                     <p className={`text-[11px] line-clamp-1 ${isSelected ? 'text-slate-300' : 'text-gray-400'}`}>
-                      {report.description}
+                      {report.translatedDescription && report.originalDescription && report.translatedDescription !== report.originalDescription ? report.translatedDescription : report.description}
                     </p>
 
                     <div className="flex items-center justify-between text-[9px] font-mono mt-1 text-gray-400">

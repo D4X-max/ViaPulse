@@ -25,6 +25,11 @@ export interface Report {
   severity: Severity;
   status: ReportStatus;
   description: string;
+  originalDescription?: string;
+  translatedDescription?: string;
+  detectedLanguage?: string;
+  priority?: string;
+  summary?: string;
   imageUrl: string;
   reporterName: string;
   reporterEmail?: string;

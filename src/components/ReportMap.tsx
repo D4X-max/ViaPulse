@@ -19,13 +19,21 @@ function MapContent({
   selectedReportId,
   onSelectReport,
   newReportLocation,
-  selectedFilters
+  selectedFilters,
+  predictions,
+  showPredictions,
+  selectedPrediction,
+  setSelectedPrediction
 }: {
   reports: Report[];
   selectedReportId?: string;
   onSelectReport: (report: Report | null) => void;
   newReportLocation?: { latitude: number; longitude: number } | null;
   selectedFilters: { [key: string]: boolean };
+  predictions: any[];
+  showPredictions: boolean;
+  selectedPrediction: any;
+  setSelectedPrediction: (p: any) => void;
 }) {
   const map = useMap();
   const geocodingLib = useMapsLibrary('geocoding');
@@ -164,6 +172,65 @@ function MapContent({
           <Pin background="#4f46e5" glyphColor="#fff" borderColor="#fff" scale={1.5} />
         </AdvancedMarker>
       )}
+
+      {showPredictions && predictions.map((pred, i) => {
+        if (!pred.latitude || !pred.longitude) return null;
+        
+        let color = '#fbbf24'; // Yellow
+        if (pred.risk === 'CRITICAL') color = '#ef4444'; // Red
+        else if (pred.risk === 'HIGH') color = '#f97316'; // Orange
+
+        const isSelected = selectedPrediction?.id === pred.id;
+
+        return (
+          <React.Fragment key={`pred-${pred.id || i}`}>
+            <AdvancedMarker
+              position={{ lat: pred.latitude, lng: pred.longitude }}
+              onClick={() => setSelectedPrediction(pred)}
+              zIndex={500}
+            >
+              <div 
+                className="rounded-full shadow-lg cursor-pointer"
+                style={{ 
+                  width: '50px', 
+                  height: '50px', 
+                  backgroundColor: color, 
+                  opacity: 0.6, 
+                  border: `3px solid ${color}`,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  animation: 'pulse 2s infinite'
+                }}
+              />
+            </AdvancedMarker>
+            
+            {isSelected && (
+               <InfoWindow
+                 position={{ lat: pred.latitude, lng: pred.longitude }}
+                 onCloseClick={() => setSelectedPrediction(null)}
+               >
+                 <div className="p-3 max-w-[240px] flex flex-col gap-2">
+                   <h3 className="font-bold text-slate-900 text-sm">{pred.hazard}</h3>
+                   <div className="flex gap-2 text-[10px] font-bold uppercase font-mono">
+                     <span className={`px-1.5 py-0.5 rounded ${pred.risk === 'CRITICAL' ? 'bg-red-100 text-red-800' : pred.risk === 'HIGH' ? 'bg-orange-100 text-orange-800' : 'bg-yellow-100 text-yellow-800'}`}>
+                       Risk: {pred.risk}
+                     </span>
+                     <span className="bg-slate-100 text-slate-700 px-1.5 py-0.5 rounded">
+                       {pred.percentage}% CONF
+                     </span>
+                   </div>
+                   {pred.estimatedTime && (
+                     <p className="text-xs text-slate-600"><strong>Est:</strong> {pred.estimatedTime}</p>
+                   )}
+                   <p className="text-xs text-slate-700 mt-1"><strong>Reason:</strong> {pred.reason || pred.trigger}</p>
+                   <p className="text-xs text-indigo-800 bg-indigo-50 p-2 rounded-md border border-indigo-100 mt-1"><strong>Action:</strong> {pred.suggestion}</p>
+                 </div>
+               </InfoWindow>
+            )}
+          </React.Fragment>
+        )
+      })}
     </>
   );
 }
@@ -171,6 +238,23 @@ function MapContent({
 export default function ReportMap(props: ReportMapProps) {
   const { categoryFilter, onSelectLocation } = props;
   const API_KEY = import.meta.env.VITE_GOOGLE_MAPS_PLATFORM_KEY || '';
+
+  const [showPredictions, setShowPredictions] = useState(false);
+  const [predictions, setPredictions] = useState<any[]>([]);
+  const [selectedPrediction, setSelectedPrediction] = useState<any | null>(null);
+
+  useEffect(() => {
+    if (showPredictions && predictions.length === 0) {
+      fetch('/api/predictions')
+        .then(res => res.json())
+        .then(data => {
+          if (data && data.predictions) {
+            setPredictions(data.predictions);
+          }
+        })
+        .catch(err => console.error("Error fetching map predictions:", err));
+    }
+  }, [showPredictions, predictions.length]);
 
   // Categories checklist filters state
   const [selectedFilters, setSelectedFilters] = useState<{ [key: string]: boolean }>({
@@ -230,28 +314,60 @@ export default function ReportMap(props: ReportMapProps) {
   return (
     <div className="relative w-full h-full rounded-2xl overflow-hidden shadow-lg border border-slate-200 bg-white flex flex-col">
       {/* Checkbox Row at the top */}
-      <div className="bg-slate-950 p-2.5 flex items-center gap-2 overflow-x-auto scrollbar-none z-50 border-b border-slate-800">
-        <span className="text-[10px] text-slate-400 font-mono uppercase tracking-widest min-w-max mr-1">Filters:</span>
-        <div className="flex gap-2 min-w-max">
-          {categoriesList.map((cat) => (
-            <label 
-              key={cat.id} 
-              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-bold cursor-pointer transition-all border ${
-                selectedFilters[cat.id]
-                  ? 'bg-indigo-600/10 border-indigo-500/40 text-indigo-400'
-                  : 'bg-slate-900 border-slate-800 text-slate-500'
-              }`}
-            >
-              <input 
-                type="checkbox" 
-                checked={!!selectedFilters[cat.id]} 
-                onChange={() => toggleFilter(cat.id)}
-                className="hidden"
-              />
-              <span>{cat.label}</span>
-            </label>
-          ))}
+      <div className="bg-slate-950 p-2.5 flex items-center justify-between gap-2 z-50 border-b border-slate-800">
+        <div className="flex items-center gap-2 overflow-x-auto scrollbar-none min-w-max">
+          <span className="text-[10px] text-slate-400 font-mono uppercase tracking-widest mr-1 min-w-max">Filters:</span>
+          <div className="flex gap-2 min-w-max">
+            {categoriesList.map((cat) => (
+              <label 
+                key={cat.id} 
+                className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-bold cursor-pointer transition-all border ${
+                  selectedFilters[cat.id]
+                    ? 'bg-indigo-600/10 border-indigo-500/40 text-indigo-400'
+                    : 'bg-slate-900 border-slate-800 text-slate-500'
+                }`}
+              >
+                <input 
+                  type="checkbox" 
+                  checked={!!selectedFilters[cat.id]} 
+                  onChange={() => toggleFilter(cat.id)}
+                  className="hidden"
+                />
+                <span>{cat.label}</span>
+              </label>
+            ))}
+          </div>
         </div>
+        
+        {/* Prediction Toggle */}
+        <div className="shrink-0 pl-4 border-l border-slate-800 hidden sm:block">
+          <button
+            onClick={() => setShowPredictions(!showPredictions)}
+            className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-[10px] font-bold transition-all border ${
+              showPredictions 
+                ? 'bg-amber-500/20 border-amber-500/50 text-amber-400 shadow-[0_0_15px_rgba(245,158,11,0.2)]' 
+                : 'bg-slate-900 border-slate-800 text-slate-500'
+            }`}
+          >
+            <span className={`w-2 h-2 rounded-full ${showPredictions ? 'bg-amber-400 animate-pulse' : 'bg-slate-600'}`}></span>
+            AI HEATMAP
+          </button>
+        </div>
+      </div>
+
+      {/* Mobile Prediction Toggle */}
+      <div className="bg-slate-900 p-2 border-b border-slate-800 sm:hidden flex justify-center">
+        <button
+          onClick={() => setShowPredictions(!showPredictions)}
+          className={`flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all border w-full ${
+            showPredictions 
+              ? 'bg-amber-500/20 border-amber-500/50 text-amber-400 shadow-[0_0_15px_rgba(245,158,11,0.2)]' 
+              : 'bg-slate-800 border-slate-700 text-slate-400'
+          }`}
+        >
+          <span className={`w-2 h-2 rounded-full ${showPredictions ? 'bg-amber-400 animate-pulse' : 'bg-slate-600'}`}></span>
+          Toggle AI Prediction Heatmap
+        </button>
       </div>
 
       <div className="w-full flex-1 min-h-[350px] relative">
@@ -265,7 +381,14 @@ export default function ReportMap(props: ReportMapProps) {
               onClick={handleMapClick}
               internalUsageAttributionIds={['gmp_mcp_codeassist_v1_aistudio']}
             >
-              <MapContent {...props} selectedFilters={selectedFilters} />
+              <MapContent 
+                {...props} 
+                selectedFilters={selectedFilters} 
+                predictions={predictions}
+                showPredictions={showPredictions}
+                selectedPrediction={selectedPrediction}
+                setSelectedPrediction={setSelectedPrediction}
+              />
             </Map>
           </APIProvider>
         ) : (

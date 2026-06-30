@@ -2,20 +2,44 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     
-    // Reports Collection: Enable basic authenticated access
-    match /reports/{reportId} {
-      // Allow any authenticated user to view reports
-      allow read: if request.auth != null;
-      // Allow any authenticated user to log or update hazard reports
-      allow write: if request.auth != null;
+    // Global Helper: Verify if the client connection holds a valid session token
+    function isAuthenticated() {
+      return request.auth != null;
     }
 
-    // User Profiles Collection: Securely restrict writes to the owner
+    // 📋 1. Hardened Reports Collection Rules
+    match /reports/{reportId} {
+      // Anyone logged in can read incident data to populate the dynamic maps/feeds
+      allow read: if isAuthenticated();
+      
+      // Note: ViaPulse uses a backend (Admin SDK) for report creation, but if the client
+      // creates reports directly, we verify they bind their own authenticated email.
+      allow create: if isAuthenticated() 
+                    && request.resource.data.reporterEmail == request.auth.token.email;
+      
+      // Citizens can update an incident (e.g., upvoting), but block them 
+      // from maliciously modifying the critical historical coordinates or media attachments
+      allow update: if isAuthenticated()
+                    && request.resource.data.latitude == resource.data.latitude
+                    && request.resource.data.longitude == resource.data.longitude
+                    && request.resource.data.imageUrl == resource.data.imageUrl;
+      
+      // Prevent citizens from deleting evidence rows directly from the frontend UI
+      allow delete: if false;
+    }
+
+    // 👤 2. Protected User Profiles Collection Rules
     match /profiles/{email} {
-      // Allow authenticated users to view profiles (needed for leaderboards/citizen lists)
-      allow read: if request.auth != null;
-      // Allow write access only if the authenticated user's email matches the profile document ID
-      allow write: if request.auth != null && (request.auth.token.email == email || request.auth.uid == email);
+      // Allowed so users can view the global ranking rosters on the Leaderboard
+      allow read: if isAuthenticated();
+      
+      // A user can only initialize or modify their own specific profile record. 
+      // Protect email tracking by double-verifying against the token parameters.
+      allow create, update: if isAuthenticated() 
+                            && (request.auth.token.email == email || request.auth.uid == email);
+                            
+      // Prevent accidental or malicious client-side deletions of profile identities
+      allow delete: if false;
     }
   }
 }

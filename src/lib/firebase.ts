@@ -1,6 +1,7 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
+import { getStorage } from 'firebase/storage';
 import config from '../../firebase-applet-config.json';
 
 const firebaseConfig = {
@@ -21,3 +22,6 @@ export const auth = getAuth(app);
 
 // Initialize Firestore
 export const db = getFirestore(app, 'ai-studio-viapulse-9eb3c16f-0fd3-44d8-be73-29ccf536900f');
+
+// Initialize Firebase Storage
+export const storage = getStorage(app);
