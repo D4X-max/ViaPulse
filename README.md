@@ -1054,9 +1054,9 @@ Dashboard Update
 
 ---
 
-# 🚀 Getting Started
+#  Getting Started
 
-## 📋 Prerequisites
+##  Prerequisites
 
 Before running ViaPulse, ensure you have the following installed:
 
@@ -1091,7 +1091,7 @@ npm install
 
 ---
 
-# 🔑 Environment Variables
+#  Environment Variables
 
 Create a `.env` file in the project root.
 
@@ -1152,14 +1152,14 @@ http://localhost:5173
 
 ---
 
-## 👤 Reporting 
+## Reporting 
 
 <img width="1364" height="606" alt="Reporting Image" src="https://github.com/user-attachments/assets/9f240ebf-40d8-4da6-8873-e91384819db8" />
 
 
 ---
 
-## 🤖 AI Report and Tracking 
+## AI Report and Tracking 
 
 <img width="1355" height="600" alt="Tracking Page" src="https://github.com/user-attachments/assets/1955939f-22f0-40c2-81ff-c7b176bd2821" />
 
@@ -1167,13 +1167,13 @@ http://localhost:5173
 
 ---
 
-## 🏛️ Ombudsman Dashboard
+##  Ombudsman Dashboard
 
 <img width="1364" height="601" alt="Ombudsman portal" src="https://github.com/user-attachments/assets/f00afb86-ee5c-4037-9127-b571e1876f59" />
 
 ---
 
-## 🏆 Leaderboard & Badges
+##  Leaderboard & Badges
 
 <img width="895" height="422" alt="Leaderboard page" src="https://github.com/user-attachments/assets/814db4b7-bc3b-4d2b-9dbc-15b3a30e19df" />
 
