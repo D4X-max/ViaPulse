@@ -697,9 +697,9 @@ ViaPulse follows a modern, scalable full-stack architecture that combines React,
 
 ---
 
-# ⚙️ Technology Stack
+#  Technology Stack
 
-## 🎨 Frontend
+##  Frontend
 
 - React 19
 - TypeScript
@@ -712,7 +712,7 @@ ViaPulse follows a modern, scalable full-stack architecture that combines React,
 
 ---
 
-## 🖥️ Backend
+##  Backend
 
 - Node.js
 - Express.js
@@ -722,7 +722,7 @@ ViaPulse follows a modern, scalable full-stack architecture that combines React,
 
 ---
 
-## ☁️ Database
+##  Database
 
 - Cloud Firestore
 - Firebase Authentication
@@ -730,7 +730,7 @@ ViaPulse follows a modern, scalable full-stack architecture that combines React,
 
 ---
 
-## 🤖 Artificial Intelligence
+##  Artificial Intelligence
 
 - Google Gemini 2.5 Flash
 - Google AI Studio
@@ -738,7 +738,7 @@ ViaPulse follows a modern, scalable full-stack architecture that combines React,
 
 ---
 
-## 🗺️ Maps & Location Services
+##  Maps & Location Services
 
 - Google Maps Platform
 - Google Maps JavaScript API
@@ -748,7 +748,7 @@ ViaPulse follows a modern, scalable full-stack architecture that combines React,
 
 ---
 
-## 🛠️ Development
+##  Development
 
 - Git
 - GitHub
@@ -758,13 +758,13 @@ ViaPulse follows a modern, scalable full-stack architecture that combines React,
 
 ---
 
-# ☁️ Google Technologies Used
+# Google Technologies Used
 
 ViaPulse is built around Google's AI and Cloud ecosystem.
 
 ---
 
-## 🤖 Google AI Studio
+##  Google AI Studio
 
 Used to design, prototype, and integrate AI workflows.
 
@@ -777,7 +777,7 @@ Powers:
 
 ---
 
-## 🧠 Gemini 2.5 Flash
+##  Gemini 2.5 Flash
 
 Acts as the primary intelligence engine.
 
@@ -796,7 +796,7 @@ Used for:
 
 ---
 
-## 🔐 Firebase Authentication
+##  Firebase Authentication
 
 Provides secure authentication using Google Sign-In.
 
@@ -809,7 +809,7 @@ Supports:
 
 ---
 
-## ☁️ Cloud Firestore
+##  Cloud Firestore
 
 Stores:
 
@@ -825,7 +825,7 @@ Provides real-time synchronization across the application.
 
 ---
 
-## 🗺️ Google Maps Platform
+##  Google Maps Platform
 
 Used for intelligent location services.
 
@@ -840,7 +840,7 @@ Features include:
 
 ---
 
-# 📁 Project Structure
+#  Project Structure
 
 ```text
 ViaPulse
@@ -873,7 +873,7 @@ ViaPulse
 
 ---
 
-# 🔄 Core Workflow
+#  Core Workflow
 
 ```text
 Citizen
@@ -949,7 +949,7 @@ Leaderboard & Badge Updates
 
 ---
 
-# 🌐 API Overview
+#  API Overview
 
 | Endpoint | Method | Purpose |
 |-----------|--------|----------|
@@ -966,7 +966,7 @@ Leaderboard & Badge Updates
 
 ---
 
-# 🔄 AI Processing Pipeline
+#  AI Processing Pipeline
 
 ```text
 Image Upload
@@ -1028,7 +1028,7 @@ Dashboard Update
 
 ---
 
-# 🔒 Security Features
+#  Security Features
 
 - Secure Google Authentication
 - Role-Based Access Control (RBAC)
@@ -1041,7 +1041,7 @@ Dashboard Update
 
 ---
 
-# ⚡ Performance Optimizations
+#  Performance Optimizations
 
 - Asynchronous AI processing
 - Background task execution
@@ -1069,18 +1069,18 @@ Before running ViaPulse, ensure you have the following installed:
 
 ---
 
-# 📦 Installation
+#  Installation
 
 Clone the repository:
 
 ```bash
-git clone https://github.com/your-username/viapulse.git
+git clone https://github.com/yo/viapulse.git](https://github.com/D4X-max/ViaPulse.git
 ```
 
 Navigate into the project:
 
 ```bash
-cd viapulse
+cd ViaPulse
 ```
 
 Install dependencies:
@@ -1113,7 +1113,7 @@ VITE_GOOGLE_MAPS_API_KEY=
 
 ---
 
-# ▶️ Running the Project
+# Running the Project
 
 Start the frontend:
 
@@ -1141,85 +1141,56 @@ http://localhost:5173
 
 ---
 
-# 🖼️ Screenshots
+# Screenshots
 
 > Replace these placeholders with actual screenshots before submission.
 
-## 🏠 Home Dashboard
+## Home Dashboard
 
-![Home Dashboard](docs/screenshots/home-dashboard.png)
+<img width="1365" height="608" alt="Home Dashboard" src="https://github.com/user-attachments/assets/fdaae3d3-d890-47b2-ae3b-e58c08282833" />
 
----
-
-## 👤 Citizen Portal
-
-![Citizen Portal](docs/screenshots/citizen-portal.png)
 
 ---
 
-## 🤖 AI Report Analysis
+## 👤 Reporting 
 
-![AI Analysis](docs/screenshots/ai-analysis.png)
+<img width="1364" height="606" alt="Reporting Image" src="https://github.com/user-attachments/assets/9f240ebf-40d8-4da6-8873-e91384819db8" />
 
----
-
-## 🗺️ Interactive Map
-
-![Interactive Map](docs/screenshots/map.png)
 
 ---
 
-## 📊 Prediction Heatmap
+## 🤖 AI Report and Tracking 
 
-![Prediction Heatmap](docs/screenshots/heatmap.png)
+<img width="1355" height="600" alt="Tracking Page" src="https://github.com/user-attachments/assets/1955939f-22f0-40c2-81ff-c7b176bd2821" />
+
+<img width="1180" height="571" alt="Public index page" src="https://github.com/user-attachments/assets/1491b7d1-799d-4ee3-9737-4c6c7d216796" />
 
 ---
 
 ## 🏛️ Ombudsman Dashboard
 
-![Ombudsman Dashboard](docs/screenshots/admin-dashboard.png)
-
----
-
-## 💬 AI Chat Assistant
-
-![AI Chatbot](docs/screenshots/chatbot.png)
+<img width="1364" height="601" alt="Ombudsman portal" src="https://github.com/user-attachments/assets/f00afb86-ee5c-4037-9127-b571e1876f59" />
 
 ---
 
 ## 🏆 Leaderboard & Badges
 
-![Leaderboard](docs/screenshots/leaderboard.png)
+<img width="895" height="422" alt="Leaderboard page" src="https://github.com/user-attachments/assets/814db4b7-bc3b-4d2b-9dbc-15b3a30e19df" />
+
 
 ---
 
-# 🎯 Evaluation Matrix Coverage
+# Future Enhancements
 
-| Evaluation Criteria | Coverage |
-|----------------------|----------|
-| ✅ Problem Solving & Impact | AI-powered reporting, duplicate detection, predictive maintenance |
-| ✅ Agentic Depth | Gemini Vision, AI Follow-up Questions, AI Repair Verification, AI Chatbot |
-| ✅ Innovation & Creativity | Predictive Hotspots, Multilingual AI, Duplicate Detection |
-| ✅ Google Technologies | Google AI Studio, Gemini 2.5 Flash, Firebase, Firestore, Google Maps Platform |
-| ✅ Product Experience | Interactive dashboards, real-time tracking, responsive UI |
-| ✅ Technical Implementation | React, Express, Firestore, REST APIs, asynchronous AI workflows |
-| ✅ Completeness & Usability | Citizen Portal, Ombudsman Dashboard, Maps, Leaderboards, Notifications |
-
----
-
-# 🚀 Future Enhancements
-
-While ViaPulse already provides a complete AI-assisted civic issue management platform, future versions can include:
-
-- 🎤 Voice-based issue reporting
-- 📶 Offline reporting with automatic synchronization
-- 📱 Progressive Web App (PWA)
-- 📡 Push notifications using Firebase Cloud Messaging
-- 🛰️ Satellite imagery analysis
-- 📷 QR-code enabled public infrastructure reporting
-- 🤝 Volunteer coordination and community cleanup campaigns
-- 📈 Advanced municipal analytics dashboard
-- 🌐 Support for additional regional languages
+-  Voice-based issue reporting
+-  Offline reporting with automatic synchronization
+-  Progressive Web App (PWA)
+-  Push notifications using Firebase Cloud Messaging
+-  Satellite imagery analysis
+-  QR-code enabled public infrastructure reporting
+-  Volunteer coordination and community cleanup campaigns
+-  Advanced municipal analytics dashboard
+-  Support for additional regional languages
 
 ---
 
