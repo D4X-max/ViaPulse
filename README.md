@@ -7,11 +7,6 @@
 ![License](https://img.shields.io/badge/License-MIT-yellow)
 ### AI-Powered Hyperlocal Civic Issue Management Platform
 
-<p align="center">
-  <b>Built for the Community Hero – Hyperlocal Problem Solver Challenge</b><br>
-  Empowering citizens and municipal authorities through AI-driven civic governance.
-</p>
-
 ---
 
 # Overview
