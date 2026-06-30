@@ -583,39 +583,8 @@ Features include:
 
 ViaPulse follows a modern, scalable full-stack architecture that combines React, Express, Firebase, Google Maps Platform, and Google Gemini AI to deliver an intelligent civic issue management platform.
 
-```text
-                          ┌───────────────────────────────┐
-                          │        Citizen Portal         │
-                          │    Ombudsman Dashboard        │
-                          │       AI Chat Assistant       │
-                          └──────────────┬────────────────┘
-                                         │
-                                         │ HTTPS / REST APIs
-                                         ▼
-                     ┌───────────────────────────────────────┐
-                     │          Express.js Backend           │
-                     │                                       │
-                     │  Authentication                       │
-                     │  Report Processing                    │
-                     │  AI Orchestration                     │
-                     │  Leaderboards                         │
-                     │  Notifications                        │
-                     │  Analytics                            │
-                     └──────────────┬────────────────────────┘
-                                    │
-        ┌───────────────────────────┼───────────────────────────┐
-        │                           │                           │
-        ▼                           ▼                           ▼
-┌────────────────┐      ┌──────────────────────┐      ┌────────────────────┐
-│ Gemini 2.5 AI  │      │ Cloud Firestore      │      │ Google Maps APIs   │
-│                │      │                      │      │                    │
-│ Vision         │      │ Reports             │      │ Maps               │
-│ Translation    │      │ Profiles            │      │ Reverse Geocoding  │
-│ Predictions    │      │ Comments            │      │ Places             │
-│ Chat           │      │ Leaderboards        │      │ Directions         │
-│ Verification   │      │ Notifications       │      │                    │
-└────────────────┘      └──────────────────────┘      └────────────────────┘
-```
+<img width="730" height="535" alt="system architecture" src="https://github.com/user-attachments/assets/2dbac349-4a1b-494b-9058-69bb4c2fec95" />
+   
 
 ---
 
