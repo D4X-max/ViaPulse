@@ -161,11 +161,11 @@ export default function PredictiveRadar() {
             <div className="flex flex-col gap-3 font-mono">
               <div className="flex justify-between items-baseline py-1 border-b border-slate-800/60 text-xs">
                 <span className="text-slate-400">Claims Mitigated:</span>
-                <span className="text-emerald-400 font-bold">{savings?.claimsMitigated || '$0'}</span>
+                <span className="text-emerald-400 font-bold">{savings?.claimsMitigated || '₹0'}</span>
               </div>
               <div className="flex justify-between items-baseline py-1 border-b border-slate-800/60 text-xs">
                 <span className="text-slate-400">Crew Overtime Saved:</span>
-                <span className="text-emerald-400 font-bold">{savings?.crewOvertimeSaved || '$0'}</span>
+                <span className="text-emerald-400 font-bold">{savings?.crewOvertimeSaved || '₹0'}</span>
               </div>
               <div className="flex justify-between items-baseline py-1 border-b border-slate-800/60 text-xs">
                 <span className="text-slate-400">SLA Breach Reductions:</span>
@@ -173,7 +173,7 @@ export default function PredictiveRadar() {
               </div>
               <div className="flex justify-between items-baseline py-1 text-xs">
                 <span className="text-slate-400">Total Est. Savings:</span>
-                <span className="text-indigo-400 font-bold text-sm">{savings?.totalSavings || '$0 / mo'}</span>
+                <span className="text-indigo-400 font-bold text-sm">{savings?.totalSavings || '₹0 / mo'}</span>
               </div>
             </div>
 

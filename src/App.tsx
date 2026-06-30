@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { ShieldCheck, Shield, Eye, Award, CheckCircle, Navigation, MapPin, RefreshCw, AlertCircle, BarChart3, LogIn, LogOut, Home, Send, HelpCircle } from 'lucide-react';
+import { ShieldCheck, Shield, Eye, Award, CheckCircle, Navigation, MapPin, RefreshCw, AlertCircle, BarChart3, LogIn, LogOut, Home, Send, HelpCircle, Sun, Moon } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import ReportMap from './components/ReportMap';
 import CitizenPortal from './components/CitizenPortal';
@@ -41,6 +41,15 @@ export default function App() {
   const [refreshing, setRefreshing] = useState(false);
   const [notification, setNotification] = useState<{ type: 'success' | 'info' | 'error'; text: string } | null>(null);
   const [leaderboard, setLeaderboard] = useState<any[]>([]);
+  const [isDarkMode, setIsDarkMode] = useState(false);
+
+  useEffect(() => {
+    if (isDarkMode) {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  }, [isDarkMode]);
 
   // Authentication State
   const [user, setUser] = useState<any | null>(null);
@@ -526,6 +535,13 @@ export default function App() {
                     {user.email}
                   </span>
                 </div>
+              </button>
+              <button
+                onClick={() => setIsDarkMode(!isDarkMode)}
+                className="p-2 rounded-lg text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 transition-colors"
+                title="Toggle Theme"
+              >
+                {isDarkMode ? <Sun className="w-4.5 h-4.5" /> : <Moon className="w-4.5 h-4.5" />}
               </button>
               <button
                 onClick={handleSignOut}

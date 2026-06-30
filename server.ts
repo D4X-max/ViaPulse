@@ -295,10 +295,10 @@ function getDynamicFallbackPredictions(reports: any[]) {
       text: `Based on the active ${activeReports.length} complaints on the ledger, ViaPulse predicts localized congestion and hazard wear risks. Primary vulnerability is centered around ${topWard}. Early repair dispatch is highly recommended.`
     },
     savings: {
-      claimsMitigated: `$${claimsMitigatedVal.toLocaleString()}`,
-      crewOvertimeSaved: `$${crewOvertimeSavedVal.toLocaleString()}`,
+      claimsMitigated: `₹${claimsMitigatedVal.toLocaleString()}`,
+      crewOvertimeSaved: `₹${crewOvertimeSavedVal.toLocaleString()}`,
       slaBreachReduction: `-${Math.min(60, 48 + resolvedReportsCount * 4)}% Time`,
-      totalSavings: `$${totalSavingsVal.toLocaleString()} / mo`
+      totalSavings: `₹${totalSavingsVal.toLocaleString()} / mo`
     },
     confidence: `${(94.8 + Math.min(4.3, reports.length * 0.1)).toFixed(1)}%`,
     primaryGrounding: "Local Ledger Telemetry"
