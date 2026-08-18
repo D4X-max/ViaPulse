@@ -965,7 +965,7 @@ Before running ViaPulse, ensure you have the following installed:
 Clone the repository:
 
 ```bash
-git clone https://github.com/yo/viapulse.git](https://github.com/D4X-max/ViaPulse.git
+git clone https://github.com/D4X-max/ViaPulse.git
 ```
 
 Navigate into the project:
